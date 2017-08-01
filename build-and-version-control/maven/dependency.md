@@ -1,4 +1,4 @@
-#dependency 
+# dependency 
 ## 依赖范围与classpath的关系
 
 ![clean](image/dependency.png)
