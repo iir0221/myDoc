@@ -18,16 +18,61 @@
 ## Imports
 ## Language Utilities
 ### fat arrow function syntax
-用于简写函数
-* ES5
+* ()=>{};
+    * ES5
+        ```js
+        // ES5-like example
+        var data = ['Alice Green', 'Paul Pfifer', 'Louis Blakenship'];
+        data.forEach(function(line) { console.log(line); });
+        ```
+    * TypeScript
+        ```ts
+        // Typescript example
+        var data: string[] = ['Alice Green', 'Paul Pfifer', 'Louis Blakenship']; 
+        data.forEach( (line) => console.log(line) );
+        ```
+* share the same this as the surrounding code
+    * ES5
     ```js
-    // ES5-like example
-    var data = ['Alice Green', 'Paul Pfifer', 'Louis Blakenship'];
-    data.forEach(function(line) { console.log(line); });
+    var nate={
+        name: "Nate",
+        guitars: ["Gibson", "Martin", "Taylor"], 
+        printGuitars: function() {
+            var self = this;
+            this.guitars.forEach(function(g) {
+                // this.name is undefined so we have to use self.name
+                console.log(self.name + " plays a " + g);
+            });
+        } 
+    };
     ```
-* TypeScript
+    * TypeScript
     ```ts
-    // Typescript example
-    var data: string[] = ['Alice Green', 'Paul Pfifer', 'Louis Blakenship']; data.forEach( (line) => console.log(line) );
+    var nate = {
+        name:"Nate",
+        guitars:["Gibson","Martin","Taylor"],
+        printGuitars:function() {
+            this.guitars.forEach((g)=>{
+                console.log(this.name+" plays a "+ g);
+            });
+        }
+    };
     ```
-### template strings
+### template strings  ``
+* Variables within strings (without being forced to concatenate with +) 
+    ```ts
+    var firstName = "Nate";
+    var lastName = "Murray";
+    // interpolate a string
+    var greeting = `Hello ${firstName} ${lastName}`;
+    console.log(greeting);
+    ```
+* Multi-line strings
+    ```ts
+    var template = `
+    <div>
+    <h1>Hello</h1>
+    <p>This is a great website</p>
+    </div>
+    `
+    ```
