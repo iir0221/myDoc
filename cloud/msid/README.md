@@ -1,0 +1,3 @@
+hot deploy
+
+WLST

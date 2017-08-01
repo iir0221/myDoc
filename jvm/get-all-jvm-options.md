@@ -1,0 +1,1 @@
+java -XX:+PrintVMOptions -XX:+AggressiveOpts -XX:+UnlockDiagnosticVMOptions -XX:+UnlockExperimentalVMOptions -XX:+PrintFlagsFinal  -version
