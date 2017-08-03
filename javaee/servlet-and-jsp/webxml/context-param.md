@@ -1,4 +1,4 @@
-# <context-param>d
+# \<context-param\>
 用于声明**应用（Application）范围**的初始化参数。它用于向 ServletContext提供键值对，即应用程序上下文信息。我们的listener, filter等在初始化时会用到这些上下文中的信息。
 
 例如

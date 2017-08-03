@@ -36,7 +36,7 @@ public void service(ServletRequest request,
 }
 ```
 
-##ServletConfig
+## ServletConfig
 **servlet Container初始话servlet时，通过init方法，将ServletConfig实例传递给servlet。**
 
 通过init方法，获取ServletConfig并赋值给成员变量

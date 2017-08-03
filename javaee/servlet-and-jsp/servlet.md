@@ -1,6 +1,8 @@
 # Servlet
+Servlet API历史版本，参见维基百科：https://en.wikipedia.org/wiki/Java_servlet#History
 
-##annotations
+![servlet API history](image/servlet_API_shitory.png)
+## annotations
 ```java
 @WebServlet(name = "MyServlet", urlPatterns = { "/my" })
 ```
@@ -8,7 +10,7 @@
 * urlPatterns：访问路径
 * 访问http://localhost:8080/appName/my
 
-##ServletConfig
+## ServletConfig
 通过init方法，获取ServletConfig并赋值给成员变量
 ```java
 private transient ServletConfig servletConfig;
@@ -19,7 +21,7 @@ private transient ServletConfig servletConfig;
       this.servletConfig = servletConfig;
   }
 ```
-##输出流
+## 输出流
 ```java
 @Override
 public void service(ServletRequest request,
@@ -40,7 +42,7 @@ public void service(ServletRequest request,
 
 
 
-##ContentType
+## ContentType
 用于定义网络文件的类型和网页的编码，决定浏览器将以什么形式、什么编码读取这个文件
 setContentType
 

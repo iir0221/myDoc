@@ -11,6 +11,20 @@
 * TypeScript
     * Classes
         * TypeScript 类只能有一个constructor
+            * 可选参数，使用?标识
+                ```ts
+                export class Article {
+                title: string;
+                link: string;
+                votes: number;
+
+                constructor(title: string, link: string, votes?: number) {
+                    this.title = title;
+                    this.link = link;
+                    this.votes = votes || 0;
+                }
+                }
+                ```
         * ES6 类可以有多个constructor
     * inheritance
         * key word:extends

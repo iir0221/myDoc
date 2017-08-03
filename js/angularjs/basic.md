@@ -11,68 +11,63 @@
 # Env
 * nodejs and npm
 * brew
+* typeScript
+    ``` bash
+    npm install -g typescript
+    ```
+* Angular CLI
+    ```bash
+    brew install watchman
+    npm install -g @angular/cli@latest
+    ```
+* tree
+    ```bash
+    brew install tree
+    ```
+    * Usage
+        ```bash
+        tree -F -L 1
+        ```
+        ```
+        xinyuazh-mac:angular-hello-world xinyuan.zhang$ tree -F -L 1
+        .
+        ├── README.md
+        ├── e2e/
+        ├── karma.conf.js
+        ├── node_modules/
+        ├── package-lock.json
+        ├── package.json
+        ├── protractor.conf.js
+        ├── src/
+        ├── tsconfig.json
+        └── tslint.json
 
-## Typescript
-### Install 
-``` bash
-npm install -g typescript
-```
-## Angular CLI
-### Install 
-```bash
-brew install watchman
-```
-```bash
-npm install -g @angular/cli@1.0.0
-```
-## Other Util
-### tree
-#### Install 
-```bash
-brew install tree
-```
-#### Usage
-```bash
-tree -F -L 1
-```
-```
-xinyuazh-mac:angular-hello-world xinyuan.zhang$ tree -F -L 1
-.
-├── README.md
-├── e2e/
-├── karma.conf.js
-├── node_modules/
-├── package-lock.json
-├── package.json
-├── protractor.conf.js
-├── src/
-├── tsconfig.json
-└── tslint.json
+        3 directories, 7 files
 
-3 directories, 7 files
-
-```
+        ```
 
 # Angular CLI
-```bash
-ng --help
-```
-## New project
-```bash
-ng new --ng4 angular-hello-world
-```
-## Start http serve
-### Default Port 4200
-```bash
-ng serve
-```
-```
-ng serve --port 9001
-```
-## New component
-```bash
-ng generate component hello-world
-```
+* help
+    ```bash
+    ng --help
+    ```
+* New project
+    ```bash
+    ng new --ng4 angular-hello-world
+    ```
+* Start http serve
+    * Default Port 4200
+        ```bash
+        ng serve
+        ```
+    * custom port
+        ```
+        ng serve --port 9001
+        ```
+* New component
+    ```bash
+    ng generate component hello-world
+    ```
 
 # Component
 * a basic component has two parts
@@ -188,7 +183,12 @@ export class UserItemComponent implements OnInit {
         <li *ngFor="let name of names">Hello {{ name }}</li>
     </ul>
     ```
-## @Input
+## @Input @Output
+### @Input
+* [squareBrackets] pass inputs
+In Angular, 
+* pass data into child components via inputs.
+
 ```ts
 import { Component, OnInit, Input } from '@angular/core';
 
@@ -207,7 +207,7 @@ export class UserItemComponent implements OnInit {
     }
 }
 ```
-* pass value from parent to input
+* pass value into child components
     ```html
     <ul>
         <li *ngFor="let individualUserName of names">
@@ -215,6 +215,115 @@ export class UserItemComponent implements OnInit {
         </li>
     </ul>
     ```
+* The property name (name, age) represent how that incoming property will be visible (“bound”) in the controller.
+* The @Input argument (shortName, oldAge) configures how the property is visible to the “outside world”.
+```ts
+@Component({
+    selector:'my-component'
+})
+class MyComponent {
+    @Input('shortName')name:string;
+    @Input('oldAge')age:number;
+}
+```
+* pass value into child components
+    ```html
+    <my-component [shortName]="myName" [oldAge]="myAge"></my-component>
+    ```
+### @Output
+* (parens) handle outputs
+* send data out of components via outputs.
+```ts
+@Component({
+  selector: 'counter',
+  template: `
+    {{ value }}
+    <button (click)="increase()">Increase</button>
+    <button (click)="decrease()">Decrease</button>
+    `
+})
+class Counter {
+  value: number;
+  constructor() { 
+    this.value = 1;
+  }
+  increase() {
+    this.value = this.value + 1;
+    return false; 
+  }
+  decrease() {
+    this.value = this.value - 1; 
+    return false;
+  } 
+}
+```
+* The key thing to understand here is that in a view, we can listen to an event by using the (output)="action" syntax.
+* In this case, the output we’re listening for is the click event on this button. There are many other built-in events we can listen to such as:    
+    * mousedown
+    * mousemove
+    * dbl-click
+    * ...
+
+```html
+<div class="inventory-app"> 
+    <products-list [productList]="products" (onProductSelected)="productWasSelected($event)"> 
+    </products-list>
+</div>
+```
+* In this case, , (onProductSelected), the left-hand side is the name of the output we want to “listen” on
+
+* "productWasSelected", the right-hand side is the function we want to call when something new is sent to this output
+* $event is a special variable here that represents the thing emitted on (i.e. sent to) the output.
+#### Emitting Custom Events
+To create a custom output event we do three things:
+* Specify outputs in the @Component configuration
+* Attach an EventEmitter to the output property
+* Emit an event from the EventEmitter, at the right time
+
+##### EventEmitter
+An EventEmitter is an object that helps you implement the 
+<font class="focus">Observer Pattern</font>.That is, it’s an object that will:
+* maintain a list of subscriber
+* publish events to them.
+
+
+```ts
+@Component({
+selector:'single-component',
+template:`
+    <button (click)="liked()">Like it?</button>
+`
+})
+class SingleComponent {
+    // 1. 指定@Output
+    @Output putRingOnIt:EventEmitter<string>;
+    constructor(){
+        // 2. created an EventEmitter that we attached to the output property putRingOnIt
+        this.putRingOnIt = new EventEmitter();
+    }
+    // 3. emit an event when liked is called.
+    liked():void{
+        this.putRingOnIt.emit("oh oh oh");
+    }
+}
+```
+```ts
+@Component({
+selector:'club',
+template:`
+    <div>
+        <!--a subscriber-->
+        <!--$event contains the thing that was emitted, in this case a string-->
+        <single-component (pubRingOnIt)="ringWasPlaced($event)"></single-component>
+    </div>
+`
+})
+class ClubComponent {
+    ringWasPlaced(message:string){
+        console.log(`Put your hands up:${message}`);
+    }
+}
+```
 
 <span id="hostBinding"></span>
 ## @ HostBinding()
@@ -229,24 +338,8 @@ export class UserItemComponent implements OnInit {
 
     ···
     ```
-# Class
-## 参数可选
-* 使用?标识
-    ```ts
-    export class Article {
-    title: string;
-    link: string;
-    votes: number;
-
-    constructor(title: string, link: string, votes?: number) {
-        this.title = title;
-        this.link = link;
-        this.votes = votes || 0;
-    }
-    }
-    ```
 # MVC
-## M和C有同样的方法
+## M和C同样的方法处理不同的业务
 * 处理Component view相关业务
     * article.component.ts
         ```ts
@@ -254,7 +347,7 @@ export class UserItemComponent implements OnInit {
             this.article.voteUp();
             return false;
         }
-    ```
+        ```
 * 处理Model相关变化
     * article.module.ts
         ```ts
@@ -321,17 +414,7 @@ ng serve
 ## Binding inputs to values
 * #value代表变量可以通过表达式解析
 * 本例，#newtitle 是一个Object，代表input DOM,实际类型是HTMLInputElement，newtitle.value是input value
-## Binding actions to events
-* 点击事件
-    * (click)="addArticle(newtitle,newlink)" class="ui positive right floated button"
-    * addArticle定义在class中
-        *  ```ts
-            addArticle(title:HTMLInputElement,link:HTMLInputElement):boolean {
-                console.log(`Adding article title: ${title.value} and link: ${link.value}`);
-                return false;
-            }
-            ```
-            * 使用反引号\`,反引号\`会解析表达式
+
 
 # Deployment
 ## building

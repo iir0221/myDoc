@@ -23,4 +23,5 @@
     * [profile](maven/profile.md)
     * [reporting](maven/reporting.md)
     * [help](maven/help.md)
+* [brew](brew/note.md)
 
