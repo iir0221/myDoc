@@ -146,7 +146,7 @@ public interface Loader {
 
 如图所示：
 
-![](/image/loader.jpg)
+![](image/loader.jpg)
 
 
 ## Reloader接口
@@ -336,29 +336,30 @@ private void setClassPath() {
 在WebappLoader启动时，将会调用setPermissions方法为类载入器设置访问相关目录的权限（只允许访问/WEB-INF/classes/，/WEB-INF/lib/），若没有使用安全管理器，则什么也不做
 
 ### 开启新线程执行类的重新载入
-    // Loop until the termination semaphore is set
-    while (!threadDone) {
+```java
+// Loop until the termination semaphore is set
+while (!threadDone) {
 
-        // Wait for our check interval
-        threadSleep();
+    // Wait for our check interval
+    threadSleep();
 
-        if (!started)
-            break;
-
-        try {
-            // Perform our modification check
-            if (!classLoader.modified())
-                continue;
-        } catch (Exception e) {
-            log(sm.getString("webappLoader.failModifiedCheck"), e);
-            continue;
-        }
-
-        // Handle a need for reloading
-        notifyContext();
+    if (!started)
         break;
 
+    try {
+        // Perform our modification check
+        if (!classLoader.modified())
+            continue;
+    } catch (Exception e) {
+        log(sm.getString("webappLoader.failModifiedCheck"), e);
+        continue;
     }
+
+    // Handle a need for reloading
+    notifyContext();
+    break;
+
+}
 ```
 
 ## 类载入器：WebappClassLoader类

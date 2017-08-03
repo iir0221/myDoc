@@ -298,7 +298,7 @@ LifecycleListener listener = new SimpleContextLifecycleListener();
 ((Lifecycle) context).start();
 ```
 
-## \#\#\# 流程图
+## 流程图
 
-![](/image/lifecycle.png)
+![](image/lifecycle.png)
 

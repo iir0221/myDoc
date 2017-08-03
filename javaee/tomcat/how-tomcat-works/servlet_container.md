@@ -1,6 +1,6 @@
 # Tomcat的四种容器
 
-![](/image/TomcatContainer.jpg)
+![](image/TomcatContainer.jpg)
 
 Engine：整个Catalina servlet引擎
 
@@ -21,9 +21,9 @@ public Container[] findChildren();
 
 # 组件
 
-**容器包含组件：载入器，记录器，管理器，领域，资源  **
+**容器包含组件：载入器，记录器，管理器，领域，资源**
 
-**Container接口提供getter，setter方法将这些组件与容器关联  **
+**Container接口提供getter，setter方法将这些组件与容器关联**
 
 ```java
 public Loader getLoader();
@@ -59,20 +59,7 @@ public void setResources(DirContext resources);
 工作流程图如下：
 
 container为Wrapper（查看大图）：
-![](/image/container.png)
+![](image/container.png)
 
 container为Context（查看大图）：
-![](/image/container2.png)
-
-
-
-
-
-
-
-
-
-
-
-
-
+![](image/container2.png)
