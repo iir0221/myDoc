@@ -2,8 +2,8 @@
 
 * ## [Servlet and JSP](servlet-and-jsp/README.md)
    * [servlet API](servlet-and-jsp/servletAPI/README.md)
-       * [javax.servlet Package](servlet-and-jsp/servletAPI/javax_servlet_package.md)
-       * [javax.servlet.http Package](servlet-and-jsp/servletAPI/javax_servlet_http_package.md)
+       * [javax.servlet Package](servlet-and-jsp/servletapi/javax_servlet_package.md)
+       * [javax.servlet.http Package](servlet-and-jsp/servletapi/javax_servlet_http_package.md)
    * [session management](servlet-and-jsp/session_management/README.md)
        * [url rewriting](servlet-and-jsp/session_management/url_rewriting.md)
        * [hidden fields](servlet-and-jsp/session_management/hidden_fields.md)
