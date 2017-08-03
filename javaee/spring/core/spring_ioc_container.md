@@ -1,4 +1,4 @@
-# spring IOC container
+# spring IOC container
 ## overview
 ![](./image/springcontainer.png)
 * 管理应用组件，负责实例化，配置和装配bean。
@@ -6,7 +6,7 @@
     * 接口org.springframework.beans.factory.beanFactory
         * 提供管理bean的基础能力
     * 接口org.springframework.context.ApplicationContext
-        * 继承beanFactory，对其进行扩展，包括整合AOP特性，消息处理，事件发布，以及应用级别的context，例如用于webapp的WebApplicationContext
+        * 继承beanFactory，对其进行扩展，包括整合AOP特性，消息处理，事件发布，以及应用级别的context，例如用于webapp的WebApplicationContext
 * 对于大多数的应用场景，无需显示的实例化ApplicationContext，比如在springmvc中，只需在配置文件中配置即可。
 ### 最常用的ApplicationContext
 * AnnotationConfigApplicationContext
@@ -93,7 +93,7 @@ context.refresh();
 ```
 
 ## bean
-### bean生命周期 
+### bean生命周期 
 ![bean lifecycle](./image/bean-lifecycle.jpg)
 
 
