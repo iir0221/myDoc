@@ -18,4 +18,7 @@
    * [Socket](tomcat/socket.md)
 
 * ## [Spring](spring/README.md)
-    * [core](spring/core/basic.md)
+    * [core](spring/core/basic.md)    
+        * [DI](spring/core/di.md)
+        * [Spring-IOC-Container](spring/core/spring_ioc_container.md)
+    * [springmvc](spring/springmvc/config_dispatcherservlet.md)
