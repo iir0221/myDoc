@@ -327,7 +327,8 @@ class ClubComponent {
 
 <span id="hostBinding"></span>
 ## @ HostBinding()
-* 为host element 设置属性值，例如class
+* 为host element (The host is the
+element this component is attached to)  设置属性值，例如class
 * 使Component封装性更好
 *   ```ts
     export class ArticleComponent implements OnInit {

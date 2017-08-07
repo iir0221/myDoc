@@ -24,4 +24,7 @@
   * [最佳实践](dom/最佳实践.md)
 * [Node.js](nodejs/README.md)
 * [AngularJS](angularjs/README.md)
+  * [Basic](angularjs/basic.md)
+  * [Typescript](angularjs/typescript.md)
+  * [Build in Directives](angularjs/build_in_directives.md)
 
