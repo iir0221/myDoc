@@ -98,3 +98,23 @@ border: 1px dashed black; background-color: #eee; }
 
 
 ## NgFor
+* *ngFor="let item of items"
+* Getting an index
+    * 
+    ```
+    <div class="ui list" *ngFor="let c of cities; let num = index"> 
+        <div class="item">{{ num+1 }} - {{ c }}</div>
+    </div>
+    ```
+
+## NgNonBindable
+```
+<div class='ngNonBindableDemo'>
+    <span class="bordered">{{ content }}</span> 
+    <span class="pre" ngNonBindable>
+        &larr; This is what {{ content }} rendered 
+    </span>
+</div>
+```
+* {{ content }}将不会被解析而直接render
+

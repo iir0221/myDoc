@@ -1,4 +1,6 @@
 # Spring MVC Controller
+## Model
+Model实际上是一个Map
 
 ## Spring MVC Test ”Circular view path” 异常
 ```java

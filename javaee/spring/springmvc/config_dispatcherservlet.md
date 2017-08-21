@@ -1,5 +1,6 @@
 # DispatcherServlet
 * Spring mvc 入口
+
 ## 通过继承AbstractAnnotationConfigDispatcherServletInitializer来配置的原理
 * ServletContainerInitializer是servlet提供的接口，Servlet Container寻找实现了该接口的类来配置自己
     * Spring提供了上述接口的实现类SpringServletContainerInitializer
