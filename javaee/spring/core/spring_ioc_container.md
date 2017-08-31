@@ -76,6 +76,11 @@ PetStoreService service = context.getBean("petStore", PetStoreService.class);
 // use configured instance
 List<String> userList = service.getUsernameList();
 ```
+### AnnotationConfigApplicationContext
+```java
+AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext(DataConfig.class);
+```
+
 ### GenericGroovyApplicationContext
 ```java
 ApplicationContext context = new GenericGroovyApplicationContext("services.groovy", "daos.groovy");
