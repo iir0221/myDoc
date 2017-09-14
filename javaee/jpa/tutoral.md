@@ -501,3 +501,9 @@ Fetching the whole record while finding the record using Primary Key.
 It checks for the availability of notifies it with primary key if it exists. Then later if you call any of the getter method of that entity then it fetches the whole.
 
 But lazy fetch is possible when you try to fetch the record for the first time. That way, a copy of the whole record is already stored in cache memory. Performance wise, lazy fetch is preferable.
+
+# Entity Relationships
+## @ManyToOne Relation
+## @OneToMany Relation
+## @OneToOne Relation
+## @ManyToMany Relation

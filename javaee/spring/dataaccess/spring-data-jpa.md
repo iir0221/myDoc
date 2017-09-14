@@ -185,50 +185,166 @@ JpaRepository 是继承自 PagingAndSortingRepository 的针对 JPA 技术提供
         @RepositoryDefinition(domainClass = AccountInfo.class, idClass = Long.class) 
         public interface UserDao { …… }
         ```
-* 声明一个方法
+* 定义查询方法
     ```java
     interface PersonRepository extends Repository<Person, Long> {
         List<Person> findByLastname(String lastname);
     }
     ```
-* 设置Spring 创建代理
-    * JavaConfig
+    findByLastname 方法名称拆分为：
+    ```
+    查询动词-主题-断言
+    ```
+    * 查询动词
         ```
-        import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
-
-        @EnableJpaRepositories
-        class Config {
-
-        }
+        返回对象
+        get
+        read
+        find
+        返回数量
+        count
         ```
-    * XML configuration:
-        ```xml
-        <?xml version="1.0" encoding="UTF-8"?>
-        <beans xmlns="http://www.springframework.org/schema/beans"
-        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-        xmlns:jpa="http://www.springframework.org/schema/data/jpa"
-        xsi:schemaLocation="http://www.springframework.org/schema/beans
-            http://www.springframework.org/schema/beans/spring-beans.xsd
-            http://www.springframework.org/schema/data/jpa
-            http://www.springframework.org/schema/data/jpa/spring-jpa.xsd">
+    * 主题可省略
 
-        <jpa:repositories base-package="com.acme.repositories"/>
+        主要是为使方法名有有意，findPersonByLastname与findByLastname没有什么区别
 
-        </beans>
-        ```
+        一种例外的情况是，如果主题以Distinct开头，则返回的结果不包含重复记录
+    * 断言关键字
 
-* 注入repository instance
+    ![](images/keywords.jpg)
+
+框架在进行方法名解析时，会先把方法名多余的前缀截取掉，比如 find、findBy、read、readBy、get、getBy，然后对剩下部分进行解析。并且如果方法的最后一个参数是 Sort 或者 Pageable 类型，也会提取相关的信息，以便按规则进行排序或者分页查询。
+
+在创建查询时，我们通过在方法名中使用属性名称来表达，比如 findByUserAddressZip ()。框架在解析该方法时，首先剔除 findBy，然后对剩下的属性进行解析，详细规则如下（此处假设该方法针对的域对象为 AccountInfo 类型）：
+
+先判断 userAddressZip （根据 POJO 规范，首字母变为小写，下同）是否为 AccountInfo 的一个属性，如果是，则表示根据该属性进行查询；如果没有该属性，继续第二步；
+从右往左截取第一个大写字母开头的字符串（此处为 Zip），然后检查剩下的字符串是否为 AccountInfo 的一个属性，如果是，则表示根据该属性进行查询；如果没有该属性，则重复第二步，继续从右往左截取；最后假设 user 为 AccountInfo 的一个属性；
+
+接着处理剩下部分（ AddressZip ），先判断 user 所对应的类型是否有 addressZip 属性，如果有，则表示该方法最终是根据 "AccountInfo.user.addressZip" 的取值进行查询；否则继续按照步骤 2 的规则从右往左截取，最终表示根据 "AccountInfo.user.address.zip" 的值进行查询。
+
+可能会存在一种特殊情况，比如 AccountInfo 包含一个 user 的属性，也有一个 userAddress 属性，此时会存在混淆。读者可以明确在属性之间加上 "_" 以显式表达意图，比如 "findByUser_AddressZip()" 或者 "findByUserAddress_Zip()"。
+
+
+
+# config    
+* JavaConfig
     ```java
-    Get the repository instance injected and use it.
+    package org.zxy.config;
 
-    public class SomeClient {
+    import com.zaxxer.hikari.HikariConfig;
+    import com.zaxxer.hikari.HikariDataSource;
+    import org.springframework.context.annotation.Bean;
+    import org.springframework.context.annotation.ComponentScan;
+    import org.springframework.context.annotation.Configuration;
+    import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
+    import org.springframework.orm.jpa.JpaTransactionManager;
+    import org.springframework.orm.jpa.JpaVendorAdapter;
+    import org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean;
+    import org.springframework.orm.jpa.vendor.Database;
+    import org.springframework.orm.jpa.vendor.HibernateJpaVendorAdapter;
+    import org.springframework.transaction.PlatformTransactionManager;
+    import org.springframework.transaction.annotation.EnableTransactionManagement;
 
-        @Autowired
-        private PersonRepository repository;
+    import javax.persistence.EntityManagerFactory;
+    import javax.sql.DataSource;
 
-        public void doSomething() {
-            List<Person> persons = repository.findByLastname("Matthews");
+
+    /**
+    * Created by xinyuan.zhang on 8/31/17.
+    */
+
+    @ComponentScan(basePackages = "org.zxy")
+    @Configuration
+    // proxy by spring
+    @EnableJpaRepositories(basePackages = "org.zxy")
+    @EnableTransactionManagement
+    public class JpaConfiguration {
+
+        // datasource
+        @Bean
+        public DataSource dataSource() {
+            // HikariDataSource
+            HikariConfig hikariConfig = new HikariConfig();
+            hikariConfig.setDriverClassName("com.mysql.jdbc.Driver");
+            hikariConfig.setJdbcUrl("jdbc:mysql://localhost:3306/test");
+            hikariConfig.setUsername("root");
+            hikariConfig.setPassword("19900221");
+
+            hikariConfig.setMaximumPoolSize(5);
+            hikariConfig.setConnectionTestQuery("SELECT 1");
+            hikariConfig.setPoolName("springHikariCP");
+
+            hikariConfig.addDataSourceProperty("dataSource.cachePrepStmts", "true");
+            hikariConfig.addDataSourceProperty("dataSource.prepStmtCacheSize", "250");
+            hikariConfig.addDataSourceProperty("dataSource.prepStmtCacheSqlLimit", "2048");
+            hikariConfig.addDataSourceProperty("dataSource.useServerPrepStmts", "true");
+
+            HikariDataSource dataSource = new HikariDataSource(hikariConfig);
+
+            return dataSource;
         }
+
+        // Hiberanate提供的JPA实现
+        @Bean
+        public JpaVendorAdapter jpaVendorAdapter() {
+            HibernateJpaVendorAdapter adapter = new HibernateJpaVendorAdapter();
+            adapter.setDatabase(Database.MYSQL);
+            adapter.setShowSql(true);
+            adapter.setGenerateDdl(false);
+            adapter.setDatabasePlatform("org.hibernate.dialect.MySQL5Dialect");
+            return adapter;
+        }
+
+        // EntityManagerFactory
+        @Bean
+        public LocalContainerEntityManagerFactoryBean entityManagerFactory() {
+            LocalContainerEntityManagerFactoryBean emf = new LocalContainerEntityManagerFactoryBean();
+            emf.setDataSource(dataSource());
+            emf.setPersistenceUnitName("person");
+            emf.setJpaVendorAdapter(jpaVendorAdapter());
+            emf.setPackagesToScan("org.zxy");
+            return emf;
+        }
+
+        // TransactionManager
+        @Bean
+        public PlatformTransactionManager transactionManager(final EntityManagerFactory emf) {
+            JpaTransactionManager transactionManager = new JpaTransactionManager();
+            transactionManager.setEntityManagerFactory(emf);
+            return transactionManager;
+        }
+
     }
     ```
+* XML configuration:
+    ```xml
+    <?xml version="1.0" encoding="UTF-8"?>
+    <beans xmlns="http://www.springframework.org/schema/beans"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns:jpa="http://www.springframework.org/schema/data/jpa"
+    xsi:schemaLocation="http://www.springframework.org/schema/beans
+        http://www.springframework.org/schema/beans/spring-beans.xsd
+        http://www.springframework.org/schema/data/jpa
+        http://www.springframework.org/schema/data/jpa/spring-jpa.xsd">
+
+    <jpa:repositories base-package="com.acme.repositories"/>
+
+    </beans>
+    ```
+
+repository 
+
+```java
+Get the repository instance injected and use it.
+
+public class SomeClient {
+
+    @Autowired
+    private PersonRepository repository;
+
+    public void doSomething() {
+        List<Person> persons = repository.findByLastname("Matthews");
+    }
+}
+```
 
