@@ -150,6 +150,7 @@ i帽，j帽（x,y方向单位向量）
 如果变化后的i帽与j帽是线性相关的，即其中一个向量是另一个向量的倍数，则这个线性变化将二维空间挤压到它们所在的一条直线上
 
 总结，线性变换
+
 ![](images/linear-transformation/25.jpg)
 ![](images/linear-transformation/26.jpg)
 ![](images/linear-transformation/27.jpg)
