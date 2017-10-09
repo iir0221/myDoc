@@ -101,14 +101,14 @@ border: 1px dashed black; background-color: #eee; }
 * *ngFor="let item of items"
 * Getting an index
     * 
-    ```
+    ```html
     <div class="ui list" *ngFor="let c of cities; let num = index"> 
         <div class="item">{{ num+1 }} - {{ c }}</div>
     </div>
     ```
 
 ## NgNonBindable
-```
+```html
 <div class='ngNonBindableDemo'>
     <span class="bordered">{{ content }}</span> 
     <span class="pre" ngNonBindable>
