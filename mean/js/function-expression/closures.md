@@ -17,8 +17,12 @@ function compare(v1,v2) {
 var result=compare(2,3);
 ```
 当某个函数被调用时，会创建一个执行环境execution context以及相应的作用域链，然后初始化函数的活动对象activation object（包括arguments,以及函数的其他命名参数）。一般来说，函数执行完毕后，局部活动对象就会被销毁。
+* execution context
+    * scope chain
+* activation object
+
 下图展示了上例中的上述关系。
-![](/syntax/functionexpression/image/closures2.jpg)
+![](./image/closures2.jpg)
 **但若是闭包，则情况有所不同。**
 ```js
 function createComparisonFunction(propertyName) {
@@ -43,7 +47,7 @@ compareNames=null;
 
 上例中，createComparisonFunction函数中定义的匿名内部函数就是一个闭包。
 
-下图展示了上例作用域链之间的关系。![](/syntax/functionexpression/image/closures.jpg)
+下图展示了上例作用域链之间的关系。![](./image/closures.jpg)
 
 
 闭包会将外部函数的活动对象添加到其作用域中。因此，当函数createComparisonFunction(外不函数)执行完毕，createComparisonFunction的作用域链会被销毁而**活动对象不会被销毁**，直到匿名函数被销毁后（本例中compareNames=null），createComparisonFunction的活动对象才会被销毁。
@@ -89,7 +93,7 @@ for(var i=0;i<10;i++) {
 }
 ```
 
-##闭包与this
+## 闭包与this
 
 闭包中的this指向window
 ```js

@@ -6,7 +6,7 @@
     string text on second line `);
     ```
   * 转义字符：
-    * \n  \t   \b   \r   \   \'   \" 
+    * \n,  \t,   \b ,  \r ,  \ ,  \\' ,  \\" 
   * interpolation
 
   ```js

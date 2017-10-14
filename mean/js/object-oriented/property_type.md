@@ -14,7 +14,7 @@ var p1={name:"zhang",age:12};
 
 对于直接在对象中定义的属性(如上例)，其configurable ，enumerable ，writable默认为true，value为指定的值。
 
-**Object.definePropertity()**方法也可以为对象添加数据属性，还可以修改数据属性的特性
+**Object.definePropertity()** 方法也可以为对象添加数据属性，还可以修改数据属性的特性
 ```js
 var person = {};
 Object.defineProperty(person,"name",{

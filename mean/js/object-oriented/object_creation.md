@@ -26,7 +26,7 @@ var p2=createPerson("wang",25,"Doctor");
 * 缺点：每个实例都包含不同的Function实例。
 
 和java的构造函数相似，首字母大写，没有return语句。
-另外，不能显示地创造对象，直接将属性方法赋给this对象。
+另外，**不能显示地创造对象，直接将属性方法赋给this对象**。
 ```js
 // 构造函数模式
 function Person(name,age,job) {
@@ -45,26 +45,23 @@ console.log(p1.constructor==Person); //true
 console.log(p2.constructor==Person); //true
 ```
 **使用new操作符调用构造函数**实际上是如下步骤：
-* 
-**创建一个新对象**
+* **创建一个新对象**
 
-* 
-**将构造函数作用域赋给新对象（this指向新对象)**
+* **将构造函数作用域赋给新对象（this指向新对象)**
 
 * **执行构造函数中的代码**
 
-* 
-**返回新对象**
+* **返回新对象**
 
 上例中的p1，p2都有一个constructor属性，该属性指向Person。
 
-这种方式定义的构造函数在Global对象（浏览器中是window对象）中。
+**这种方式定义的构造函数在Global对象（浏览器中是window对象）中**。
 ```js
 // caller属性指向调用当前函数的函数，如果在全局环境下使用当前函数，则返回null,否则返回函数
 console.log(Person.caller); //null
 ```
 
-与java不同，构造函数方式create的对象，每个对象的方法都属于对象自己。
+**与java不同，构造函数方式create的对象，每个对象的方法都属于对象自己**。
 ```js
 console.log(p1.sayName==p2.sayName); //false
 
@@ -90,7 +87,7 @@ console.log(p1.sayName==p2.sayName); //true
 ```
 ## 原型模式
 
-prototype是一个指针，指向一个对象，这个对象包含的属性和方法可以由特定类型的实例共享。
+**prototype是一个指针，指向一个对象，这个对象包含的属性和方法可以由特定类型的实例共享**。
 
 ```js
 // prototype
@@ -114,25 +111,22 @@ console.log(person1.sayName==person2.sayName); //true
 
 
 console.log(Person.prototype.constructor==Person); //true
-console.log(Person.prototype.isPrototypeOf(person1)); //tre
+console.log(Person.prototype.isPrototypeOf(person1)); //true
 ```
-* 
-  **person1和person2都包含了一个内部属性，该属性仅仅指向了Person.prototype。也就是说实例和构造函数没有直接的关系。**
-*   
-  **prototype的constructor属性指向构造函数**
+* **person1和person2都包含了一个内部属性，该属性仅仅指向了Person.prototype。也就是说实例和构造函数没有直接的关系。**
+* **prototype的constructor属性指向构造函数**
 ```js
 console.log(Person.prototype.constructor==Person); //true
 ```
-* 
-**prototype的isPrototypeOf可以判断对象的原型**
+* **prototype的isPrototypeOf可以判断对象的原型**
 ```js
 console.log(Person.prototype.isPrototypeOf(person1)); //true
 ```
 
-![](/objectoriented/image/原型.jpeg)
+![](./image/prototype.jpeg)
 
 * 对象搜索属性，先从实例本身寻找，找不到再从prototype中寻找。
-* 如果实例本身拥有和prototype同名的属性，则屏蔽prototype的属性，也就是说实例不能修改prototype的属性值
+* 如果实例本身拥有和prototype同名的属性，则屏蔽prototype的属性，也就是说**实例不能修改prototype的属性值**
 * 使用delete操作符可以完全删除实例属性，重新访问prototype的属性
 * 使用hasOwnProperty()方法判断属性属于实例还是prototype
 * Object.getOwnPropertyDescriptor方法只能用于实例属性，要取得原型属性的描述符，必须直接在原型对象上调用。
@@ -185,11 +179,12 @@ console.log(p1keys); //[ 'name' ]
 ```
 
 ### Object.getOwnPropertyNames
+```js
 // Object.getOwnPropertyNames方法：取得所有的实例属性
 var pkeys=Object.getOwnPropertyNames(Person.prototype);
 console.log(pkeys); //[ 'constructor', 'name', 'age', 'job', 'sayName' ]
 console.log(p1keys); //[ 'name' ]
-
+```
 ### for-in，Object.keys，Object.getOwnPropertyNames相似
 
 ## 简洁语法的原型
