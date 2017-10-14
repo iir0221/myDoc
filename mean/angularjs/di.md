@@ -1,0 +1,61 @@
+# DI
+## manually use the injector
+```ts
+@Injectable()
+export class UserService {
+
+  user:any;
+
+  setUser(newUser) {
+    this.user = newUser;
+  }
+
+  getUser():any {
+    return this.user;
+  }
+}
+```
+
+```ts
+export class UserDemoComponent implements OnInit {
+
+  userName:string;
+  userService:UserService;
+
+  constructor() {
+    const injector:any = ReflectiveInjector.resolveAndCreate([UserService]);
+    this.userService = injector.get(UserService);
+  }
+
+  signIn():void {
+    this.userService.setUser({
+      name:'Nate Murray'
+    });
+
+    this.userName = this.userService.getUser().name;
+    console.log('User name is:',this.userName);
+  }
+
+  ngOnInit() {
+  }
+
+}
+```
+
+```html
+<div>
+
+  <p *ngIf="userName"
+  class="welcome">
+    Welcome:{{userName}}
+  </p>
+  <button (click)="signIn()"
+  class="ui button">
+    Sign In
+  </button>
+
+</div>
+```
+In our component’s constructor we are using a static method from <b>ReflectiveInjector</b> called <b>resolveAndCreate</b>. That method is responsible for creating a new injector. The parameter we pass in is an array with all the injectable things we want this new injector to know. In our case, we just wanted it to know about the UserService injectable.
+
+## Providing Dependencies with NgModule
