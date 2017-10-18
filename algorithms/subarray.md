@@ -57,6 +57,69 @@
     }
     ```
 * 解法3：
+    * 分治策略
+        * 最大子序列可能出现在三处：
+            * 左半部分
+            * 右半部分
+            * 左右两半部分
+    * 时间复杂度T(N)=2T(N/2)+O(N)
+        * T(N)=Nlog(N)
+    ```java
+    public class Solution {
+        /*
+        * @param nums: A list of integers
+        * @return: A integer indicate the sum of max subarray
+        */
+        public int maxSubArray(int[] nums) {
+            return maxSumRec(nums,0,nums.length-1);
+        }
+        
+        public int maxSumRec(int[] nums, int left, int right) {
+            
+            if(left==right) 
+                return nums[left];
+            
+            
+            int center = (left+right)/2;
+            
+            // 注意此处是left，不是0
+            int maxLeftSum = maxSumRec(nums,left,center);
+            // 注意此处是right，不是nums.length-1
+            int maxRightSum = maxSumRec(nums,center+1,right);
+            
+            int maxLeftBorderSum = nums[center];
+            int leftBorderSum = 0;
+            for(int i=center;i>=left;i--) {
+                leftBorderSum +=nums[i];
+                if(leftBorderSum > maxLeftBorderSum)
+                    maxLeftBorderSum = leftBorderSum;
+            }
+            
+            
+            int maxRightBorderSum = nums[center+1];
+            int rightBorderSum = 0;
+            for(int i=center+1;i<=right;i++) {
+                rightBorderSum +=nums[i];
+                if(rightBorderSum > maxRightBorderSum) 
+                    maxRightBorderSum = rightBorderSum;
+            }
+            
+            return max(maxLeftSum,maxRightSum,maxLeftBorderSum+maxRightBorderSum);
+            
+        }
+        
+        public int max(int left,int right,int center) {
+            int max = left;
+            if (left < right)
+                max = right;
+            if (max < center)
+                max = center;
+            return max;
+            
+        }
+    }
+    ```
+* 解法4：
     * 最优解
     * 我们不需要知道最佳子序列的位置
     * 如果a[i]是负的，那么它不可能代表最优序列的起点
