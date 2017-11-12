@@ -43,7 +43,7 @@
   <url-pattern>/registration.xml</url-pattern>
 </servlet-mapping>
 ```
-##url-patter的匹配规则
+## url-patter的匹配规则
 
 ### 使用 URL 路径
 在收到客户端请求时,web 容器确定转发到哪一个 Web 应用。选择的 Web 应用必须具有最长的上下文路径

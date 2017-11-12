@@ -45,7 +45,8 @@
 ```
 debug：
 
-事件发生阶段：processValidators以后
+valueChangeListener事件发生阶段：processValidators
+
 ProcessValidators.java
 
 ```java
