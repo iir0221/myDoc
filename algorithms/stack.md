@@ -3,7 +3,8 @@
 * 给定一个字符串所表示的括号序列，包含以下字符： '(', ')', '{', '}', '[' and ']'， 判定是否是有效的括号序列。
 * 样例
     * 括号必须依照 "()" 顺序表示， "()[]{}" 是有效的括号，但 "([)]"则是无效的括号。
-* 根据报错处理未考虑到的情况
+* 解析
+    * 根据报错处理未考虑到的情况
 ```java
 public class Solution {
     /*
@@ -70,7 +71,8 @@ public class Solution {
 * 样例
     * ["2", "1", "+", "3", "*"] -> ((2 + 1) * 3) -> 9
     * ["4", "13", "5", "/", "+"] -> (4 + (13 / 5)) -> 6
-* 数字压入栈中，符号则取出栈中的两个数字，进行相应计算，再将计算结果压入栈中
+* 解析
+    * 数字压入栈中，符号则取出栈中的两个数字，进行相应计算，再将计算结果压入栈中
 ```java
 public class Solution {
     /*
@@ -124,7 +126,9 @@ public class Solution {
 * 给定一个表达式字符串数组，返回该表达式的逆波兰表达式（即去掉括号）。
 * 例子
     * 对于 [3 - 4 + 5]的表达式（该表达式可表示为["3", "-", "4", "+", "5"]），返回 [3 4 - 5 +]（该表达式可表示为 ["3", "4", "-", "5", "+"]）。
-* 关键在于1.优先输出优先级高的运算符 2.对于相同优先级的运算符，优先输出前面的运算符
+* 解析
+    * 1.优先输出优先级高的运算符 
+    * 2.对于相同优先级的运算符，优先输出前面的运算符
 ```java
 public class Solution {
     /*
@@ -182,3 +186,77 @@ public class Solution {
 ## 表达式求值
 * 先进行中序到后续的转换，得到逆波兰表达式
 * 再计算逆波兰表达式的值
+
+## 表达式展开
+* 给出一个表达式 s，此表达式包括数字，字母以及方括号。在方括号前的数字表示方括号内容的重复次数(括号内的内容可以是字符串或另一个表达式)，请将这个表达式展开成一个字符串。
+* 例子
+    * S = abc3[a] 返回 abcaaa
+    * S = 3[abc] 返回 abcabcabc
+    * S = 4[ac]dy 返回 acacacacdy
+    * S = 3[2[ad]3[pf]]xyz 返回 adadpfpfpfadadpfpfpfadadpfpfpfxyz
+* 解析
+    * 将中间结果存在Stack中
+```java
+public class Solution {
+    /*
+     * @param s: an expression includes numbers, letters and brackets
+     * @return: a string
+     */
+    public String expressionExpand(String s) {
+        // write your code here
+        Stack<String> stack = new Stack<>();
+        String result = "";
+        Boolean isDigit = false;
+        for(Character c:s.toCharArray()) {
+            if(c=='[') {
+                isDigit = false;
+            } else if(c==']') {
+                isDigit = false;
+                String tmp="";
+                String tmp1 = "";
+                while (!stack.isEmpty()) {
+                    tmp1 = stack.pop();
+                    if(isInteger(tmp1)) {
+                        String tmp2="";
+                        for(int i=0;i<Integer.valueOf(tmp1);i++) {
+                            tmp2 = tmp2+tmp;
+                        }
+                        if(!tmp2.equals(""))
+                            stack.push(tmp2);
+                        break;
+                    }
+                    tmp = tmp1 + tmp;
+                }
+            } else if(96<c || 123<c || 64<c || 133<c) {
+                isDigit = false;
+                stack.push(c.toString());
+            } else {
+                if(isDigit) {
+                    String tmp = stack.pop();
+                    stack.push(tmp+c);
+                } else {
+                    stack.push(c.toString());
+                }
+                isDigit = true;
+
+            }
+
+        }
+
+        while (!stack.isEmpty()) {
+            result = stack.pop()+result;
+        }
+
+        return result;
+    }
+    public boolean isInteger(String str) {
+        for (int i = str.length();--i>=0;){    
+            if (!Character.isDigit(str.charAt(i))){  
+                return false;  
+            }  
+        }  
+        return true;  
+    }
+
+}
+```

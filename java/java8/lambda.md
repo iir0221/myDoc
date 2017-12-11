@@ -175,8 +175,8 @@ Supplier -- 无参数传入，返回一个结果，方法为T get()
 UnaryOperator -- 一元操作符， 继承Function<t,t>,传入参数的类型和返回类型相同。
 BinaryOperator -- 二元操作符， 传入的两个参数的类型和返回类型相同， 继承BiFunction
 ```
-# 方法引用                                                                                                                                                                               
-**方法引用增强了lambda表达式的可读性 **
+# 方法引用   
+**方法引用增强了lambda表达式的可读性**
 
 方法表达式的三种主要情况：
 
@@ -374,10 +374,10 @@ public class SuperTest {
 Stream<Button> stream = labels.stream().map(Button::new);
 Button[] buttons4 = stream.toArray(Button[]::new);
 ```
-# 变量作用域                                                                                                                                                                            
+# 变量作用域
 lambda表达式引用值，而不是变量。
 
-**lambda表达式中引用的局部变量必须是：显示声明为final的，或者虽然没有被声明为final，但实际上也算是有效的final的。 **
+**lambda表达式中引用的局部变量必须是：显示声明为final的，或者虽然没有被声明为final，但实际上也算是有效的final的。**
 
 在Java中与其相似的是匿名内部类关于局部变量的引用。
 
@@ -523,6 +523,23 @@ public class VariableScope {
         } catch (IOException ex) {
             return false;
         }
+    }
+}
+```
+# 默认方法
+默认方法的意义：**为了兼容以前的版本**如果Collection接口要添加新的方法，例如forEach。那么每个实现了Collection接口的自定义类就必须都实现这个方法。这在JAVA中是完全无法接受的。
+>Java8中，forEach方法已经被添加到了Iterable接口中。
+
+* 如果一个类实现的接口有一个默认方法而该类继承的父类拥有同样的方法，则使用父类的方法。
+    * >类优先原则
+* 如果一个类实现的两个接口中拥有同样的默认方法，则该类必须重写这个默认方法以避免冲突。
+
+# 接口中的静态方法
+接口可以提供静态方法
+```java
+public interface Path {
+    public static Path(String first,String... more) {
+        return FileSystems.getDefault().getPath(first,more);
     }
 }
 ```

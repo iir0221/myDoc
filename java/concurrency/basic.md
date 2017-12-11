@@ -17,11 +17,100 @@
             * 可变属性多个
                 * 加锁  
 
-## 锁
-* synchronized
-    * 作用于方法时，锁为调用该方法的对象
-    * 作用于静态方法时，锁为静态方法所在的Class对象
+## 互斥同步
+可以通过synchronized或重入锁(java.util.concurrent.locks.ReentrantLock)来实现互斥同步
+### synchronized
+#### 基本用法
+* 修饰实例方法
+```java
+public class Test {
+    // 修饰实例方法
+    public synchronized void add() {
+        //doSomething
+    };
+}
+```
+* 修饰this
+```java
+public class Test {
+    // 同步代码块
+    public void test() {
+        //doSomething
+        synchronized (this) {
+            //doSomething
+        }
+        //doSomething
+    }
 
+}
+```
+* 修饰类方法
+```java
+public class Test {
+    // 修饰类方法
+    public static synchronized void add() {
+        //doSomething
+    };
+}
+```
+* 修饰Test.class
+```java
+public class Test {
+    // 同步代码块
+    public static void add() {
+        //doSomething
+        synchronized (Test.class) {
+            //doSomething
+        }
+        //doSomething
+    }
+}
+```
+* 修饰实例属性
+```java
+public class Test {
+
+    private Object o = new Object();
+    // 同步代码块
+    public void add() {
+        //doSomething
+        synchronized (o) {
+            //doSomething
+        }
+        //doSomething
+    }
+}
+```
+* 修饰类属性
+```java
+public class Test {
+
+    private static Object o = new Object();
+    // 同步代码块
+    public void add() {
+        //doSomething
+        synchronized (o) {
+             //doSomething
+        }
+        //doSomething
+    }
+}
+```
+* synchronized编译后，会在同步块前后形成两个字节码指令
+    * monitorenter
+    * monitorexit
+        * 这两个字节码需要指明锁定和解锁的对象（实例对象或Class对象）
+* 每一个对象都有自己的对象锁
+    * 在执行monitorenter指令时，首先要尝试获取对象的锁,如果这个对象没被锁定，或者当前线程已经拥有了这个对象锁，那么就把锁的计数器加1（锁在同一现充中可冲入）。如果获取对象锁失败，那么当前线程进入阻塞状态，直到对象锁被另外一个线程释放，才有机会获取该对象的锁。
+    * 在执行monitorexit指令时，会将锁的计数器减1，当计数器为0时，线程将锁释放。
+* Note:
+    * 在一个实例的私有属性上使用synchronized，不要在实例方法或this上使用synchronized：
+        * method:效率低，应尽可能缩小同步块
+        * this:this是整个程序都可以访问的对象引用，很容易造成调用方法的阻塞
+    * 在一个私有的静态属性或在Test.class上使用synchronized，不要在类方法或this.getClass()上使用synchronized
+        * this.getClass():you shouldn't synchronize on this.getClass() for another reason - it won't work in the presence of inheritance! If class Worker has two child classes, FooWorker and BarWorker, then invocations of .process() will take different locks when invoked on an instance of FooWorker vs. an instance of BarWorker. Agree that the private static variable is a better idea, but if you DO want to synchronize on the class, be explicit: synchronized(Worker.class)
+        
+[Question about Java synchronized](https://stackoverflow.com/questions/6214229/question-about-java-synchronized)
 * 例子
    
    一个对象有如下三个方法：

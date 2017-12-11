@@ -1,6 +1,6 @@
 # Lifecycle
 
-## 1. Lifecycle接口
+## Lifecycle接口
 
 * 通过实现Lifecycle接口，可以达到统一启动/关闭这些组件的效果，
 * Catalina允许组件包含其他组件，因此父组件要负责启动/关闭子组件，
@@ -8,10 +8,14 @@
     * 这种单一启动/关闭的机制正是通过Lifecycle接口实现的
 
 * Lifecycle（Tomcat 9）接口如下：
-    * 13中LifecycleEvent事件类型
+    * 13种LifecycleEvent事件类型
+        * 用于LifecycleEvent事件的type属性中，作用是区分组件发出的LifecycleEvent事件的状态。从而可以让多种状态发送同一类型的事件。然后用其中一个属性来区分多种状态而不用定义多种事件。
     * 3个管理监听器的方法
-    * 4个声明周期方法
+        * 同于管理监听器
+    * 4个生命周期方法
+        * 用于执行生命周期各个阶段的操作
     * 2个获取当前状态的方法
+        * 用于获取当前状态
 ```java
 package org.apache.catalina;
 
@@ -274,127 +278,345 @@ public interface Lifecycle {
 
 **其中start\(\)和stop\(\)方法必须提供实现，以供父类调用，实现对它的启动/关闭**
 
-以下三个方法则与事件监听相关\(观察者模式\)
+## 管理监听器
+Lifecycle接口的默认实现类为LifecycleBase,所有实现了生命周期的组件都直接或间接的继承自LifecycleBase。
 
+早期Tomcat的监听器管理，专门使用了一个类LifecycleSupport来完成。Tomcat9中，直接通过LifecycleBase完成。
+
+LifecycleBase中定义了一个List来保存监听器：
 ```java
-addLifecycleListener 
-
-findLifecycleListeners 
-
-removeLifecycleListener
+private final List<LifecycleListener> lifecycleListeners = new CopyOnWriteArrayList<>();
 ```
+LifecycleBase通过以下三个方法来添加查找删除监听器：
+```
+public void addLifecycleListener(LifecycleListener listener) {
+    lifecycleListeners.add(listener);
+}
 
-## 2. LifecycleEvent类：生命周期事件
+public LifecycleListener[] findLifecycleListeners() {
+    return lifecycleListeners.toArray(new LifecycleListener[0]);
+}
 
+public void removeLifecycleListener(LifecycleListener listener) {
+    lifecycleListeners.remove(listener);
+}
+```
+LifecycleBase中还定义了处理LifecycleEvent的fireLifecycleEvent方法,该方法将会对所有监听器进行处理
 ```java
-public final class LifecycleEvent extends EventObject {
+protected void fireLifecycleEvent(String type, Object data) {
+    LifecycleEvent event = new LifecycleEvent(this, type, data);
+    for (LifecycleListener listener : lifecycleListeners) {
+        listener.lifecycleEvent(event);
+    }
+}
+```
+如前所述，Tomcat中的监听器会通过判断Event的type，来决定要做什么处理,以ContextConfig为例：
+```java
+@Override
+public void lifecycleEvent(LifecycleEvent event) {
 
-    public LifecycleEvent(Lifecycle lifecycle, String type) {
-        this(lifecycle, type, null);
+    // Identify the context we are associated with
+    try {
+        context = (Context) event.getLifecycle();
+    } catch (ClassCastException e) {
+        log.error(sm.getString("contextConfig.cce", event.getLifecycle()), e);
+        return;
     }
 
+    // Process the event that has occurred
+    if (event.getType().equals(Lifecycle.CONFIGURE_START_EVENT)) {
+        configureStart();
+    } else if (event.getType().equals(Lifecycle.BEFORE_START_EVENT)) {
+        beforeStart();
+    } else if (event.getType().equals(Lifecycle.AFTER_START_EVENT)) {
+        // Restore docBase for management tools
+        if (originalDocBase != null) {
+            context.setDocBase(originalDocBase);
+        }
+    } else if (event.getType().equals(Lifecycle.CONFIGURE_STOP_EVENT)) {
+        configureStop();
+    } else if (event.getType().equals(Lifecycle.AFTER_INIT_EVENT)) {
+        init();
+    } else if (event.getType().equals(Lifecycle.AFTER_DESTROY_EVENT)) {
+        destroy();
+    }
+
+}
+```
+### LifecycleEvent类：生命周期事件
+
+```java
+import java.util.EventObject;
+
+/**
+ * General event for notifying listeners of significant changes on a component
+ * that implements the Lifecycle interface.
+ *
+ * @author Craig R. McClanahan
+ */
+public final class LifecycleEvent extends EventObject {
+
+    private static final long serialVersionUID = 1L;
+
+
+    /**
+     * Construct a new LifecycleEvent with the specified parameters.
+     *
+     * @param lifecycle Component on which this event occurred
+     * @param type Event type (required)
+     * @param data Event data (if any)
+     */
     public LifecycleEvent(Lifecycle lifecycle, String type, Object data) {
         super(lifecycle);
-        this.lifecycle = lifecycle;
         this.type = type;
         this.data = data;
     }
 
-    private Object data = null;
 
-    private Lifecycle lifecycle = null;
+    /**
+     * The event data associated with this event.
+     */
+    private final Object data;
 
-    private String type = null;
 
+    /**
+     * The event type this instance represents.
+     */
+    private final String type;
+
+
+    /**
+     * @return the event data of this event.
+     */
     public Object getData() {
-        return (this.data);
+        return data;
     }
 
+
+    /**
+     * @return the Lifecycle on which this event occurred.
+     */
     public Lifecycle getLifecycle() {
-        return (this.lifecycle);
+        return (Lifecycle) getSource();
     }
 
+
+    /**
+     * @return the event type of this event.
+     */
     public String getType() {
-        return (this.type);
+        return this.type;
     }
 }
 ```
 
-## 3. LifecycleListener接口：生命周期监听器
-
+### LifecycleListener接口：生命周期监听器
 ```java
 public interface LifecycleListener {
     // 当某个事件监听器监听到相关事件发生时，会调用该方法
     public void lifecycleEvent(LifecycleEvent event);
 }
 ```
+Tomcat9中，以下类实现了该接口：
+```
+JreMemoryLeakPreventionListener (org.apache.catalina.core)
+GlobalResourcesLifecycleListener (org.apache.catalina.mbeans)
+FixContextListener in Tomcat (org.apache.catalina.startup)
+JmxRemoteLifecycleListener (org.apache.catalina.mbeans)
+AccessLogListener in StandardEngine (org.apache.catalina.core)
+SetIdListener in TestApplicationContext (org.apache.catalina.core)
+HostConfig (org.apache.catalina.startup)
+EngineConfig (org.apache.catalina.startup)
+MemoryLeakTrackingListener in StandardHost (org.apache.catalina.core)
+HeartbeatListener (org.apache.catalina.ha.backend)
+StateTracker in TestHostConfigAutomaticDeployment (org.apache.catalina.startup)
+ThreadLocalLeakPreventionListener (org.apache.catalina.core)
+MapperListener (org.apache.catalina.mapper)
+DefaultWebXmlListener in Tomcat (org.apache.catalina.startup)
+UserConfig (org.apache.catalina.startup)
+ExpandedDirectoryRemovalListener in HostConfig (org.apache.catalina.startup)
+NamingContextListener (org.apache.catalina.core)
+ContextConfig (org.apache.catalina.startup)
+    AbsoluteOrderContextConfig in TestStandardContextResources (org.apache.catalina.core)
+CustomContextConfig in TestTomcat (org.apache.catalina.startup)
+VersionLoggerListener (org.apache.catalina.startup)
+SecurityListener (org.apache.catalina.security)
+StoreConfigLifecycleListener (org.apache.catalina.storeconfig)
+FailingLifecycleListener in TestStandardContext (org.apache.catalina.core)
+AprLifecycleListener (org.apache.catalina.core)
+```
 
-## 4. 工具类LifecycleSupport
-
-**LifecycleSupport将所有的LifecycleListener存在数组listeners中**
-
-实现了Lifecycle接口的组件可以使用LifecycleSupport类
+## 生命周期方法
+Lifecycle提供了四个生命周期方法，这些方法首先会判断当前的状态和要处理的方法是否匹配，如果不匹配会执行相应方法使其匹配（如在init之前调用了start，会先执行init方法），或者抛出异常。如果匹配或者处理匹配了，则会调用相应的模板方法并设置相应的状态。
+LifecycleBase是其他所有Lifecycle实现类的父类，所以实际调用的是LifecycleBase的生命周期方法，进而调用各子类的模板方法：
 
 ```java
-public final class LifecycleSupport {
-    public LifecycleSupport(Lifecycle lifecycle) {
-        super();
-        this.lifecycle = lifecycle;
+@Override
+public final synchronized void init() throws LifecycleException {
+    if (!state.equals(LifecycleState.NEW)) {
+        invalidTransition(Lifecycle.BEFORE_INIT_EVENT);
     }
 
-    private Lifecycle lifecycle = null;
-    private LifecycleListener listeners[] = new LifecycleListener[0];
+    try {
+        setStateInternal(LifecycleState.INITIALIZING, null, false);
+        initInternal();
+        setStateInternal(LifecycleState.INITIALIZED, null, false);
+    } catch (Throwable t) {
+        handleSubClassException(t, "lifecycleBase.initFail", toString());
+    }
+}
 
-    public void addLifecycleListener(LifecycleListener listener) {
+/**
+    * {@inheritDoc}
+    */
+@Override
+public final synchronized void start() throws LifecycleException {
 
-        synchronized (listeners) {
-            LifecycleListener results[] = new LifecycleListener[listeners.length + 1];
-            for (int i = 0; i < listeners.length; i++)
-                results[i] = listeners[i];
-            results[listeners.length] = listener;
-            listeners = results;
+    if (LifecycleState.STARTING_PREP.equals(state) || LifecycleState.STARTING.equals(state) ||
+            LifecycleState.STARTED.equals(state)) {
+
+        if (log.isDebugEnabled()) {
+            Exception e = new LifecycleException();
+            log.debug(sm.getString("lifecycleBase.alreadyStarted", toString()), e);
+        } else if (log.isInfoEnabled()) {
+            log.info(sm.getString("lifecycleBase.alreadyStarted", toString()));
         }
 
+        return;
     }
 
-    public LifecycleListener[] findLifecycleListeners() {
-        return listeners;
+    if (state.equals(LifecycleState.NEW)) {
+        init();
+    } else if (state.equals(LifecycleState.FAILED)) {
+        stop();
+    } else if (!state.equals(LifecycleState.INITIALIZED) &&
+            !state.equals(LifecycleState.STOPPED)) {
+        invalidTransition(Lifecycle.BEFORE_START_EVENT);
     }
 
-    public void fireLifecycleEvent(String type, Object data) {
-        LifecycleEvent event = new LifecycleEvent(lifecycle, type, data);
-        LifecycleListener interested[] = null;
-        synchronized (listeners) {
-            interested = (LifecycleListener[]) listeners.clone();
+    try {
+        setStateInternal(LifecycleState.STARTING_PREP, null, false);
+        startInternal();
+        if (state.equals(LifecycleState.FAILED)) {
+            // This is a 'controlled' failure. The component put itself into the
+            // FAILED state so call stop() to complete the clean-up.
+            stop();
+        } else if (!state.equals(LifecycleState.STARTING)) {
+            // Shouldn't be necessary but acts as a check that sub-classes are
+            // doing what they are supposed to.
+            invalidTransition(Lifecycle.AFTER_START_EVENT);
+        } else {
+            setStateInternal(LifecycleState.STARTED, null, false);
         }
-        for (int i = 0; i < interested.length; i++)
-            interested[i].lifecycleEvent(event);
+    } catch (Throwable t) {
+        // This is an 'uncontrolled' failure so put the component into the
+        // FAILED state and throw an exception.
+        handleSubClassException(t, "lifecycleBase.startFail", toString());
+    }
+}
+
+/**
+    * {@inheritDoc}
+    */
+@Override
+public final synchronized void stop() throws LifecycleException {
+
+    if (LifecycleState.STOPPING_PREP.equals(state) || LifecycleState.STOPPING.equals(state) ||
+            LifecycleState.STOPPED.equals(state)) {
+
+        if (log.isDebugEnabled()) {
+            Exception e = new LifecycleException();
+            log.debug(sm.getString("lifecycleBase.alreadyStopped", toString()), e);
+        } else if (log.isInfoEnabled()) {
+            log.info(sm.getString("lifecycleBase.alreadyStopped", toString()));
+        }
+
+        return;
     }
 
-    public void removeLifecycleListener(LifecycleListener listener) {
-        synchronized (listeners) {
-            int n = -1;
-            for (int i = 0; i < listeners.length; i++) {
-                if (listeners[i] == listener) {
-                    n = i;
-                    break;
-                }
-            }
-            if (n < 0)
-                return;
-            LifecycleListener results[] = new LifecycleListener[listeners.length - 1];
-            int j = 0;
-            for (int i = 0; i < listeners.length; i++) {
-                if (i != n)
-                    results[j++] = listeners[i];
-            }
-            listeners = results;
+    if (state.equals(LifecycleState.NEW)) {
+        state = LifecycleState.STOPPED;
+        return;
+    }
+
+    if (!state.equals(LifecycleState.STARTED) && !state.equals(LifecycleState.FAILED)) {
+        invalidTransition(Lifecycle.BEFORE_STOP_EVENT);
+    }
+
+    try {
+        if (state.equals(LifecycleState.FAILED)) {
+            // Don't transition to STOPPING_PREP as that would briefly mark the
+            // component as available but do ensure the BEFORE_STOP_EVENT is
+            // fired
+            fireLifecycleEvent(BEFORE_STOP_EVENT, null);
+        } else {
+            setStateInternal(LifecycleState.STOPPING_PREP, null, false);
         }
+
+        stopInternal();
+
+        // Shouldn't be necessary but acts as a check that sub-classes are
+        // doing what they are supposed to.
+        if (!state.equals(LifecycleState.STOPPING) && !state.equals(LifecycleState.FAILED)) {
+            invalidTransition(Lifecycle.AFTER_STOP_EVENT);
+        }
+
+        setStateInternal(LifecycleState.STOPPED, null, false);
+    } catch (Throwable t) {
+        handleSubClassException(t, "lifecycleBase.stopFail", toString());
+    } finally {
+        if (this instanceof Lifecycle.SingleUse) {
+            // Complete stop process first
+            setStateInternal(LifecycleState.STOPPED, null, false);
+            destroy();
+        }
+    }
+}
+
+@Override
+public final synchronized void destroy() throws LifecycleException {
+    if (LifecycleState.FAILED.equals(state)) {
+        try {
+            // Triggers clean-up
+            stop();
+        } catch (LifecycleException e) {
+            // Just log. Still want to destroy.
+            log.warn(sm.getString(
+                    "lifecycleBase.destroyStopFail", toString()), e);
+        }
+    }
+
+    if (LifecycleState.DESTROYING.equals(state) || LifecycleState.DESTROYED.equals(state)) {
+        if (log.isDebugEnabled()) {
+            Exception e = new LifecycleException();
+            log.debug(sm.getString("lifecycleBase.alreadyDestroyed", toString()), e);
+        } else if (log.isInfoEnabled() && !(this instanceof Lifecycle.SingleUse)) {
+            // Rather than have every component that might need to call
+            // destroy() check for SingleUse, don't log an info message if
+            // multiple calls are made to destroy()
+            log.info(sm.getString("lifecycleBase.alreadyDestroyed", toString()));
+        }
+
+        return;
+    }
+
+    if (!state.equals(LifecycleState.STOPPED) && !state.equals(LifecycleState.FAILED) &&
+            !state.equals(LifecycleState.NEW) && !state.equals(LifecycleState.INITIALIZED)) {
+        invalidTransition(Lifecycle.BEFORE_DESTROY_EVENT);
+    }
+
+    try {
+        setStateInternal(LifecycleState.DESTROYING, null, false);
+        destroyInternal();
+        setStateInternal(LifecycleState.DESTROYED, null, false);
+    } catch (Throwable t) {
+        handleSubClassException(t, "lifecycleBase.destroyFail", toString());
     }
 }
 ```
 
-## lifecycle的工作流程
+
+## 模拟
 
 ### SimpleContext
 
@@ -535,606 +757,3 @@ LifecycleListener listener = new SimpleContextLifecycleListener();
 
 ![](image/lifecycle.png)
 
-# Lifecycle与Bootstrap
-* Tomcat的组件均拥有start,stop等生命周期方法，拥有管理生命周期的特性，这一特性抽象为Lifecycle接口
-* Tomcat所有组件均实现了Lifecycle接口：
-    * **LifecycleBase**：Lifecycle的默认实现类是LifecycleBase
-        * **init(),start(),stop(),destroy()方法的实现就在这个类中。**
-        * **start()方法会检查LifecycleState是否为NEW,如果是，则将先调用init()方法首先进行初始化**
-        * **这四个方法又会调用模板方法initInternal(),startInternal(),stopInternal(),destroyInternal()，这些模板方法由各个组件具体实现。**
-    * **LifecycleMBeanBase**：抽象类LifecycleMBeanBase继承自LifecycleBase，并实现了接口JmxEnabled（public interface JmxEnabled extends MBeanRegistration）从而将自身注册为MBean(JMX)。Tomcat可利用管理工具对其进行动态维护，参见Tomcat文档
-    [Monitoring and Managing Tomcat](http://tomcat.apache.org/tomcat-9.0-doc/monitoring.html)
-    * StandardServer，StandardService通过继承LifecycleMBeanBase间接实现Lifecycle接口
-    * ContainerBase通过继承LifecycleMBeanBase间接实现Lifecycle接口
-        * 四个Container通过继承ContainerBase间接实现Lifecycle接口
-
-## BootStrap:Tomcat入口类
-```java
-/**
-    * Main method and entry point when starting Tomcat via the provided
-    * scripts.
-    *
-    * @param args Command line arguments to be processed
-    */
-public static void main(String args[]) {
-
-    if (daemon == null) {
-        // Don't set daemon until init() has completed
-        Bootstrap bootstrap = new Bootstrap();
-        try {
-            // 初始化ClassLoader，通过ClassLoader创建Catalina实例，并将其赋给属性catalinaDaemon
-            bootstrap.init();
-        } catch (Throwable t) {
-            handleThrowable(t);
-            t.printStackTrace();
-            return;
-        }
-        daemon = bootstrap;
-    } else {
-        // When running as a service the call to stop will be on a new
-        // thread so make sure the correct class loader is used to prevent
-        // a range of class not found exceptions.
-        Thread.currentThread().setContextClassLoader(daemon.catalinaLoader);
-    }
-
-    // 处理传入的命令，如果args参数为空，默认执行start
-    try {
-        String command = "start";
-        if (args.length > 0) {
-            command = args[args.length - 1];
-        }
-
-        if (command.equals("startd")) {
-            args[args.length - 1] = "start";
-            daemon.load(args);
-            daemon.start();
-        } else if (command.equals("stopd")) {
-            args[args.length - 1] = "stop";
-            daemon.stop();
-        } else if (command.equals("start")) {
-            daemon.setAwait(true);
-            daemon.load(args);
-            daemon.start();
-        } else if (command.equals("stop")) {
-            daemon.stopServer(args);
-        } else if (command.equals("configtest")) {
-            daemon.load(args);
-            if (null==daemon.getServer()) {
-                System.exit(1);
-            }
-            System.exit(0);
-        } else {
-            log.warn("Bootstrap: command \"" + command + "\" does not exist.");
-        }
-    } catch (Throwable t) {
-        // Unwrap the Exception for clearer error reporting
-        if (t instanceof InvocationTargetException &&
-                t.getCause() != null) {
-            t = t.getCause();
-        }
-        handleThrowable(t);
-        t.printStackTrace();
-        System.exit(1);
-    }
-
-}
-
-```
-start命令的处理调用了三个方法setAwait(),load(),start()。在这三个方法内部具体通过Catalina的实例catalinaDaemon属性，通过反射来调用catalinaDaemon的方法执行。以start()方法为例：
-```java
-/**
-    * Start the Catalina daemon.
-    * @throws Exception Fatal start error
-    */
-public void start() throws Exception {
-    // 先判断catalinaDaemon有没有实例化，如果没有，则实例化
-    if( catalinaDaemon==null ) 
-        init();
-    // 通过反射调用catalinaDaemon的start()方法
-    Method method = catalinaDaemon.getClass()
-                    .getMethod("start", (Class [] )null);
-    method.invoke(catalinaDaemon, (Object [])null);
-
-}
-```
-## Catalina
-* Bootstrap处理start命令，会通过反射调用Catalina的setAwait(),load(),start()方法。
-
-### setAwait()方法
-* 设置Tomcat启动完成后是否进入等待状态的flag：await属性，该属性会在start()方法中被用与判断是否进入等待状态
-```java
-public boolean isAwait() {
-    return await;
-}
-```
-### load()方法
-* **根据配置文件conf/server.xml创建Server对象，并赋值给属性server**(即创建整个tomcat组件实例)
-* 具体的解析操作由Apache开源项目Digester完成
-* 调用server的init()方法，开始生命周期的初始化工作
-```java
-/**
-* Start a new server instance.
-*/
-public void load() {
-
-    long t1 = System.nanoTime();
-
-    initDirs();
-
-    // Before digester - it may be needed
-    initNaming();
-
-    // Create and execute our Digester
-    Digester digester = createStartDigester();
-    // 通过Digester创建Server实例,并赋值给属性server
-    InputSource inputSource = null;
-    InputStream inputStream = null;
-    File file = null;
-    try {
-        try {
-            file = configFile();
-            inputStream = new FileInputStream(file);
-            inputSource = new InputSource(file.toURI().toURL().toString());
-        } catch (Exception e) {
-            if (log.isDebugEnabled()) {
-                log.debug(sm.getString("catalina.configFail", file), e);
-            }
-        }
-        if (inputStream == null) {
-            try {
-                inputStream = getClass().getClassLoader()
-                    .getResourceAsStream(getConfigFile());
-                inputSource = new InputSource
-                    (getClass().getClassLoader()
-                    .getResource(getConfigFile()).toString());
-            } catch (Exception e) {
-                if (log.isDebugEnabled()) {
-                    log.debug(sm.getString("catalina.configFail",
-                            getConfigFile()), e);
-                }
-            }
-        }
-
-        // This should be included in catalina.jar
-        // Alternative: don't bother with xml, just create it manually.
-        if (inputStream == null) {
-            try {
-                inputStream = getClass().getClassLoader()
-                        .getResourceAsStream("server-embed.xml");
-                inputSource = new InputSource
-                (getClass().getClassLoader()
-                        .getResource("server-embed.xml").toString());
-            } catch (Exception e) {
-                if (log.isDebugEnabled()) {
-                    log.debug(sm.getString("catalina.configFail",
-                            "server-embed.xml"), e);
-                }
-            }
-        }
-
-
-        if (inputStream == null || inputSource == null) {
-            if  (file == null) {
-                log.warn(sm.getString("catalina.configFail",
-                        getConfigFile() + "] or [server-embed.xml]"));
-            } else {
-                log.warn(sm.getString("catalina.configFail",
-                        file.getAbsolutePath()));
-                if (file.exists() && !file.canRead()) {
-                    log.warn("Permissions incorrect, read permission is not allowed on the file.");
-                }
-            }
-            return;
-        }
-
-        try {
-            inputSource.setByteStream(inputStream);
-            digester.push(this);
-            digester.parse(inputSource);
-        } catch (SAXParseException spe) {
-            log.warn("Catalina.start using " + getConfigFile() + ": " +
-                    spe.getMessage());
-            return;
-        } catch (Exception e) {
-            log.warn("Catalina.start using " + getConfigFile() + ": " , e);
-            return;
-        }
-    } finally {
-        if (inputStream != null) {
-            try {
-                inputStream.close();
-            } catch (IOException e) {
-                // Ignore
-            }
-        }
-    }
-
-    // 
-    getServer().setCatalina(this);
-    getServer().setCatalinaHome(Bootstrap.getCatalinaHomeFile());
-    getServer().setCatalinaBase(Bootstrap.getCatalinaBaseFile());
-
-    // Stream redirection
-    initStreams();
-
-    // Start the new server
-    try {
-        // 正式开启Tomcat生命周期，调用server的init()方法
-        getServer().init();
-    } catch (LifecycleException e) {
-        if (Boolean.getBoolean("org.apache.catalina.startup.EXIT_ON_INIT_FAILURE")) {
-            throw new java.lang.Error(e);
-        } else {
-            log.error("Catalina.start", e);
-        }
-    }
-
-    long t2 = System.nanoTime();
-    if(log.isInfoEnabled()) {
-        log.info("Initialization processed in " + ((t2 - t1) / 1000000) + " ms");
-    }
-}
-```
-### start()方法
-* 调用server的start()方法，开始启动工作
-* 根据属性await判断是否让程序进入等待状态
-```java
-/**
-    * Start a new server instance.
-    */
-public void start() {
-
-    // 首先判断server是否实例化，如果没有，则实例化
-    if (getServer() == null) {
-        load();
-    }
-
-    if (getServer() == null) {
-        log.fatal("Cannot start server. Server instance is not configured.");
-        return;
-    }
-
-    long t1 = System.nanoTime();
-
-    // Start the new server
-    try {
-        // 调用server的start()方法启动服务器
-        getServer().start();
-    } catch (LifecycleException e) {
-        log.fatal(sm.getString("catalina.serverStartFail"), e);
-        try {
-            getServer().destroy();
-        } catch (LifecycleException e1) {
-            log.debug("destroy() failed for failed Server ", e1);
-        }
-        return;
-    }
-
-    long t2 = System.nanoTime();
-    if(log.isInfoEnabled()) {
-        log.info("Server startup in " + ((t2 - t1) / 1000000) + " ms");
-    }
-
-    // Register shutdown hook
-    if (useShutdownHook) {
-        if (shutdownHook == null) {
-            shutdownHook = new CatalinaShutdownHook();
-        }
-        // 注册一个新的虚拟机关闭挂钩（即一个简单初始化但还没有启动的线程）
-        // 程序退出时,启动该线程
-        // 将会调用Catalina.this.stop()方法
-        Runtime.getRuntime().addShutdownHook(shutdownHook);
-
-        // If JULI is being used, disable JULI's shutdown hook since
-        // shutdown hooks run in parallel and log messages may be lost
-        // if JULI's hook completes before the CatalinaShutdownHook()
-        LogManager logManager = LogManager.getLogManager();
-        if (logManager instanceof ClassLoaderLogManager) {
-            ((ClassLoaderLogManager) logManager).setUseShutdownHook(
-                    false);
-        }
-    }
-    // 进入等待状态，等待tomcat的stop命令
-    if (await) {
-        // 调用server的await()方法
-        await();
-        stop();
-    }
-}
-```
-
-## Server
-### init
-* Bootstrap处理start命令，会通过反射调用Catalina的setAwait(),load(),start()方法
-    * Catalina的load()方法将会调用Server的init()方法，开始生命周期的初始化工作。
-* Server的init()方法首先被调用：Server实现了Lifecycle接口，实际调用的是父类LifecycleBase的init()方法，而该方法将调用StandardServer的模板方法initInternal()：
-
-```java
-/**
-    * Invoke a pre-startup initialization. This is used to allow connectors
-    * to bind to restricted ports under Unix operating environments.
-    */
-@Override
-protected void initInternal() throws LifecycleException {
-
-    // 调用LifecycleMBeanBase的initInternal()方法,注册为MBean
-    super.initInternal();
-
-    // Register global String cache
-    // Note although the cache is global, if there are multiple Servers
-    // present in the JVM (may happen when embedding) then the same cache
-    // will be registered under multiple names
-    onameStringCache = register(new StringCache(), "type=StringCache");
-
-    // Register the MBeanFactory
-    MBeanFactory factory = new MBeanFactory();
-    factory.setContainer(this);
-    onameMBeanFactory = register(factory, "type=MBeanFactory");
-
-    // Register the naming resources
-    globalNamingResources.init();
-
-    // Populate the extension validator with JARs from common and shared
-    // class loaders
-    if (getCatalina() != null) {
-        ClassLoader cl = getCatalina().getParentClassLoader();
-        // Walk the class loader hierarchy. Stop at the system class loader.
-        // This will add the shared (if present) and common class loaders
-        while (cl != null && cl != ClassLoader.getSystemClassLoader()) {
-            if (cl instanceof URLClassLoader) {
-                URL[] urls = ((URLClassLoader) cl).getURLs();
-                for (URL url : urls) {
-                    if (url.getProtocol().equals("file")) {
-                        try {
-                            File f = new File (url.toURI());
-                            if (f.isFile() &&
-                                    f.getName().endsWith(".jar")) {
-                                ExtensionValidator.addSystemResource(f);
-                            }
-                        } catch (URISyntaxException e) {
-                            // Ignore
-                        } catch (IOException e) {
-                            // Ignore
-                        }
-                    }
-                }
-            }
-            cl = cl.getParent();
-        }
-    }
-    // Initialize our defined Services
-    for (int i = 0; i < services.length; i++) {
-        services[i].init();
-    }
-}
-```
-### start
-* Bootstrap处理start命令，会通过反射调用Catalina的setAwait(),load(),start()方法
-    * Catalina的start()方法将会调用Server的start(),await()，启动服务器并进入等待状态。当shutdown命令到来时，调用Server的stop()方法关闭服务器。
-
-* Server的start()方法首先被调用：Server实现了Lifecycle接口，实际调用的是父类LifecycleBase的start()方法，而该方法将调用StandardServer的模板方法startInternal()：
-    * Server将启动naming resources
-    * Server将启动所有的Service。
-    ```java
-    @Override
-    protected void startInternal() throws LifecycleException {
-
-        fireLifecycleEvent(CONFIGURE_START_EVENT, null);
-        setState(LifecycleState.STARTING);
-        // 调用NamingResourcesImpl的startInternal()方法
-        globalNamingResources.start();
-
-        // Start our defined Services
-        synchronized (servicesLock) {
-            for (int i = 0; i < services.length; i++) {
-                // 调用Service的startInternal()方法
-                services[i].start();
-            }
-        }
-    }
-    ```
-* Server的await()方法随后被调用：
-    * 根据conf/server.xml中的配置
-    ```xml
-    <Server port="8005" shutdown="SHUTDOWN">
-    ```
-    * 首先判断端口号port，然后根据port的值有三种处理方法
-    
-    ```java
-    /**
-        * Wait until a proper shutdown command is received, then return.
-        * This keeps the main thread alive - the thread pool listening for http
-        * connections is daemon threads.
-        */
-    @Override
-    public void await() {
-        // Negative values - don't wait on port - tomcat is embedded or we just don't like ports
-        // 当在配置文件中设置port为-2,不进入await状态，直接退出tomcat
-        if( port == -2 ) {
-            // undocumented yet - for embedding apps that are around, alive.
-            return;
-        }
-        // 当在配置文件中设置port为-1，则进入await循环，该循环内部没有break语句
-        // 即只有在外部调用了stop()方法将stopAwait置为true，才能关闭Tomcat
-        if( port==-1 ) {
-            try {
-                awaitThread = Thread.currentThread();
-                while(!stopAwait) {
-                    try {
-                        Thread.sleep( 10000 );
-                    } catch( InterruptedException ex ) {
-                        // continue and check the flag
-                    }
-                }
-            } finally {
-                awaitThread = null;
-            }
-            return;
-        }
-        // 当在配置文件中设置port为其他值，在port端口启动一个ServerSocket监听关闭命令。
-        // 进入await循环，如果接收到退出命令，则退出循环，关闭tomcat。
-        // Set up a server socket to wait on
-        try {
-            awaitSocket = new ServerSocket(port, 1,
-                    InetAddress.getByName(address));
-        } catch (IOException e) {
-            log.error("StandardServer.await: create[" + address
-                                + ":" + port
-                                + "]: ", e);
-            return;
-        }
-
-        try {
-            awaitThread = Thread.currentThread();
-
-            // Loop waiting for a connection and a valid command
-            while (!stopAwait) {
-                ServerSocket serverSocket = awaitSocket;
-                if (serverSocket == null) {
-                    break;
-                }
-
-                // Wait for the next connection
-                Socket socket = null;
-                StringBuilder command = new StringBuilder();
-                try {
-                    InputStream stream;
-                    long acceptStartTime = System.currentTimeMillis();
-                    try {
-                        socket = serverSocket.accept();
-                        socket.setSoTimeout(10 * 1000);  // Ten seconds
-                        stream = socket.getInputStream();
-                    } catch (SocketTimeoutException ste) {
-                        // This should never happen but bug 56684 suggests that
-                        // it does.
-                        log.warn(sm.getString("standardServer.accept.timeout",
-                                Long.valueOf(System.currentTimeMillis() - acceptStartTime)), ste);
-                        continue;
-                    } catch (AccessControlException ace) {
-                        log.warn("StandardServer.accept security exception: "
-                                + ace.getMessage(), ace);
-                        continue;
-                    } catch (IOException e) {
-                        if (stopAwait) {
-                            // Wait was aborted with socket.close()
-                            break;
-                        }
-                        log.error("StandardServer.await: accept: ", e);
-                        break;
-                    }
-
-                    // Read a set of characters from the socket
-                    int expected = 1024; // Cut off to avoid DoS attack
-                    while (expected < shutdown.length()) {
-                        if (random == null)
-                            random = new Random();
-                        expected += (random.nextInt() % 1024);
-                    }
-                    while (expected > 0) {
-                        int ch = -1;
-                        try {
-                            ch = stream.read();
-                        } catch (IOException e) {
-                            log.warn("StandardServer.await: read: ", e);
-                            ch = -1;
-                        }
-                        // Control character or EOF (-1) terminates loop
-                        if (ch < 32 || ch == 127) {
-                            break;
-                        }
-                        command.append((char) ch);
-                        expected--;
-                    }
-                } finally {
-                    // Close the socket now that we are done with it
-                    try {
-                        if (socket != null) {
-                            socket.close();
-                        }
-                    } catch (IOException e) {
-                        // Ignore
-                    }
-                }
-
-                // Match against our command string
-                boolean match = command.toString().equals(shutdown);
-                if (match) {
-                    log.info(sm.getString("standardServer.shutdownViaPort"));
-                    break;
-                } else
-                    log.warn("StandardServer.await: Invalid command '"
-                            + command.toString() + "' received");
-            }
-        } finally {
-            ServerSocket serverSocket = awaitSocket;
-            awaitThread = null;
-            awaitSocket = null;
-
-            // Close the server socket and return
-            if (serverSocket != null) {
-                try {
-                    serverSocket.close();
-                } catch (IOException e) {
-                    // Ignore
-                }
-            }
-        }
-    }
-    ```
-
-## Service
-### start
-* Bootstrap.main(
-    * Catalina.start()
-        * Server.start()
-        * StandardServer.startInternal()
-            * Service.start()
-            * StandardService.startInternal()
-
-* 启动Engine
-* 启动Executor
-* 启动MapperListener
-* 启动Connector
-```java
-/**
-    * Start nested components ({@link Executor}s, {@link Connector}s and
-    * {@link Container}s) and implement the requirements of
-    * {@link org.apache.catalina.util.LifecycleBase#startInternal()}.
-    *
-    * @exception LifecycleException if this component detects a fatal error
-    *  that prevents this component from being used
-    */
-@Override
-protected void startInternal() throws LifecycleException {
-
-    if(log.isInfoEnabled())
-        log.info(sm.getString("standardService.start.name", this.name));
-    setState(LifecycleState.STARTING);
-
-    // Start our defined Container first
-    if (engine != null) {
-        synchronized (engine) {
-            engine.start();
-        }
-    }
-
-    synchronized (executors) {
-        for (Executor executor: executors) {
-            executor.start();
-        }
-    }
-
-    mapperListener.start();
-
-    // Start our defined Connectors second
-    synchronized (connectorsLock) {
-        for (Connector connector: connectors) {
-            // If it has already failed, don't try and start it
-            if (connector.getState() != LifecycleState.FAILED) {
-                connector.start();
-            }
-        }
-    }
-}
-```
-![](image/timing_diagram.jpg)

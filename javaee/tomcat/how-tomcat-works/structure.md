@@ -7,8 +7,10 @@
             * Host
             * Context
             * Wrapper
+            
 ![](image/application_server.jpg)
 ![](image/structure.jpg)
+![](image/structure2.jpg)
 ## Server
 代表整个Tomcat应用服务器
 
