@@ -1,12 +1,12 @@
 # Tomcat 中的JMX
 
-关于JMX的基础知识以及Commons Modeler的说明，见[JMX详解](../../jmx/basic.md)
+关于JMX的基础知识以及Commons Modeler的说明，见[JMX详解](../../jmx/basic.md)
 
-Tomcat使用了Commons Modeler library来创建注册MBean。
+Tomcat使用了Commons Modeler library来创建注册MBean。
 
 参考[JMX详解](../../jmx/basic.md)中使用Commons Modeler library创建并注册MBean的过程：
  ## 1. 根据mbeans-descriptors.xml创建Registry实例
-* BootStrap时，将会调用Catalina的[load()方法](./bootstrap.md)。该方法会根据conf/server.xml文件创建server实例。
+* BootStrap时，将会调用Catalina的[load()方法](./bootstrap.md)。该方法会根据conf/server.xml文件创建server实例。
 * 在server.xml中有以下配置
 ```xml
 <Listener className="org.apache.catalina.mbeans.GlobalResourcesLifecycleListener" />
@@ -69,7 +69,7 @@ public static synchronized Registry createRegistry() {
 * Bootstrap处理start命令，会通过反射调用Catalina的setAwait(),load(),start()方法
     * Catalina的load()方法将会调用Server的init()方法，启动生命周期的初始化工作。
 * Server的init()方法首先被调用：Server实现了Lifecycle接口，实际调用的是父类LifecycleBase的init()方法，而该方法将调用StandardServer的模板方法initInternal()。
-* initInternal()方法除了创建并注册Server对应的MBean外，还将创建并注册Service对应的MBean，以及其他Component对应的MBean。
+* initInternal()方法除了创建并注册Server对应的MBean外，还将创建并注册Service对应的MBean，以及其他Component对应的MBean。
 ```java
     /**
      * Invoke a pre-startup initialization. This is used to allow connectors

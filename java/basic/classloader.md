@@ -982,7 +982,25 @@ Accept-Language: en-US,en;q=0.8
 可以看出java是动态的加载类的～～～
 
 
+## 相关API
+```java
+java.lang.Class
+ClassLoader getClassLoader()
 
+java.lang.ClassLoader
+ClassLoader getParent()
+static ClassLoader getSystemClassLoader()
+protected Class findClass(String name)
+Class defineClass(String name,byte[] byteCodeData,int offset,int length)
+
+java.net.URLClassLoader
+URLClassLoader(URL[] urls)
+URLClassLoader(URL[] urls, ClassLoader parent)
+
+java.lang.Thread
+ClassLoader getContextClassLoader()
+void setContextClassLoader(ClassLoader loader)
+```
 
 
 

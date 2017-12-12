@@ -4,11 +4,11 @@
     * **LifecycleBase**：Lifecycle的默认实现类是LifecycleBase
         * **init(),start(),stop(),destroy()方法的实现就在这个类中。**
         * **start()方法会检查LifecycleState是否为NEW,如果是，则将先调用init()方法首先进行初始化**
-        * **这四个方法又会调用模板方法initInternal(),startInternal(),stopInternal(),destroyInternal()，这些模板方法由各个组件具体实现。**
+        * **这四个方法又会调用模板方法initInternal(),startInternal(),stopInternal(),destroyInternal()，这些模板方法由各个组件具体实现。**
     * **LifecycleMBeanBase**：抽象类LifecycleMBeanBase继承自LifecycleBase，并实现了接口JmxEnabled（public interface JmxEnabled extends MBeanRegistration）从而将自身注册为MBean(JMX)。Tomcat可利用管理工具对其进行动态维护，参见Tomcat文档
     [Monitoring and Managing Tomcat](http://tomcat.apache.org/tomcat-9.0-doc/monitoring.html)
-    * StandardServer，StandardService通过继承LifecycleMBeanBase间接实现Lifecycle接口
-    * ContainerBase通过继承LifecycleMBeanBase间接实现Lifecycle接口
+    * StandardServer，StandardService通过继承LifecycleMBeanBase间接实现Lifecycle接口
+    * ContainerBase通过继承LifecycleMBeanBase间接实现Lifecycle接口
         * 四个Container通过继承ContainerBase间接实现Lifecycle接口
 
 ## BootStrap启动:Tomcat入口类
@@ -25,7 +25,7 @@ public static void main(String args[]) {
         // Don't set daemon until init() has completed
         Bootstrap bootstrap = new Bootstrap();
         try {
-            // 初始化ClassLoader，通过ClassLoader创建Catalina实例，并将其赋给属性catalinaDaemon
+            // 初始化ClassLoader,通过ClassLoader创建Catalina实例，并将其赋给属性catalinaDaemon
             bootstrap.init();
         } catch (Throwable t) {
             handleThrowable(t);
@@ -40,7 +40,7 @@ public static void main(String args[]) {
         Thread.currentThread().setContextClassLoader(daemon.catalinaLoader);
     }
 
-    // 处理传入的命令，如果args参数为空，默认执行start
+    // 处理传入的命令，如果args参数为空，默认执行start
     try {
         String command = "start";
         if (args.length > 0) {
@@ -233,7 +233,7 @@ public void load() {
 
     // Start the new server
     try {
-        // 正式开启Tomcat生命周期，调用server的init()方法
+        // 正式开启Tomcat生命周期,调用server的init()方法
         getServer().init();
     } catch (LifecycleException e) {
         if (Boolean.getBoolean("org.apache.catalina.startup.EXIT_ON_INIT_FAILURE")) {
@@ -324,7 +324,7 @@ public void start() {
 * Bootstrap处理start命令，会通过反射调用Catalina的setAwait(),load(),start()方法
     * Catalina的load()方法将会调用Server的init()方法，开始生命周期的初始化工作。
 * Server的init()方法首先被调用：Server实现了Lifecycle接口，实际调用的是父类LifecycleBase的init()方法，而该方法将调用StandardServer的模板方法initInternal()：
-    * Server将初始化naming resources
+    * Server将初始化naming resources
     * Server将初始化所有的Service。
 * **init的一个重要的作用是创建并注册MBean，参见[Tomcat中的JMX](./jmx_in_tomcat.md)**
 
@@ -336,7 +336,7 @@ public void start() {
 @Override
 protected void initInternal() throws LifecycleException {
 
-    // 调用LifecycleMBeanBase的initInternal()方法,创建并注册对应StandardServer的MBean
+    // 调用LifecycleMBeanBase的initInternal()方法,创建并注册对应StandardServer的MBean
     super.initInternal();
 
     // Register global String cache
@@ -393,7 +393,7 @@ protected void initInternal() throws LifecycleException {
     * Catalina的start()方法将会调用Server的start(),await()，启动服务器并进入等待状态。当shutdown命令到来时，调用Server的stop()方法关闭服务器。
 
 * Server的start()方法首先被调用：Server实现了Lifecycle接口，实际调用的是父类LifecycleBase的start()方法，而该方法将调用StandardServer的模板方法startInternal()：
-    * Server将启动naming resources
+    * Server将启动naming resources
     * Server将启动所有的Service。
     ```java
     @Override
@@ -429,12 +429,12 @@ protected void initInternal() throws LifecycleException {
     @Override
     public void await() {
         // Negative values - don't wait on port - tomcat is embedded or we just don't like ports
-        // 当在配置文件中设置port为-2,不进入await状态，直接退出tomcat
+        // 当在配置文件中设置port为-2,不进入await状态，直接退出tomcat
         if( port == -2 ) {
             // undocumented yet - for embedding apps that are around, alive.
             return;
         }
-        // 当在配置文件中设置port为-1，则进入await循环，该循环内部没有break语句
+        // 当在配置文件中设置port为-1，则进入await循环，该循环内部没有break语句
         // 即只有在外部调用了stop()方法将stopAwait置为true，才能关闭Tomcat
         if( port==-1 ) {
             try {
@@ -573,17 +573,17 @@ protected void initInternal() throws LifecycleException {
 
 
 * 同Server一样，第一句代码super.initInternal()
-    * 调用LifecycleMBeanBase的initInternal()方法,创建并注册对应StandardService的MBean。
+    * 调用LifecycleMBeanBase的initInternal()方法,创建并注册对应StandardService的MBean。
 * Initialize Engine
-    * 调用LifecycleMBeanBase的initInternal()方法，创建并注册对应的MBean。
+    * 调用LifecycleMBeanBase的initInternal()方法，创建并注册对应的MBean。
 * Initialize Engine
-    * 调用LifecycleMBeanBase的initInternal()方法，创建并注册对应的MBean。
+    * 调用LifecycleMBeanBase的initInternal()方法，创建并注册对应的MBean。
 * Initialize any Executors
-    * 调用LifecycleMBeanBase的initInternal()方法，创建并注册对应的MBean。
+    * 调用LifecycleMBeanBase的initInternal()方法，创建并注册对应的MBean。
 * Initialize mapper listener
-    * 调用LifecycleMBeanBase的initInternal()方法，创建并注册对应的MBean。
+    * 调用LifecycleMBeanBase的initInternal()方法，创建并注册对应的MBean。
 * Initialize our defined Connectors
-    * 调用LifecycleMBeanBase的initInternal()方法，创建并注册对应的MBean。
+    * 调用LifecycleMBeanBase的initInternal()方法，创建并注册对应的MBean。
 ```java
 /**
     * Invoke a pre-startup initialization. This is used to allow connectors
