@@ -281,7 +281,7 @@ public interface Lifecycle {
 ## 管理监听器
 Lifecycle接口的默认实现类为LifecycleBase,所有实现了生命周期的组件都直接或间接的继承自LifecycleBase。
 
-早期Tomcat的监听器管理，专门使用了一个类LifecycleSupport来完成。Tomcat9中，直接通过LifecycleBase完成。
+早期Tomcat的监听器管理，专门使用了一个类LifecycleSupport来完成。Tomcat9中，直接通过LifecycleBase完成。
 
 LifecycleBase中定义了一个List来保存监听器：
 ```java
@@ -417,7 +417,7 @@ public interface LifecycleListener {
     public void lifecycleEvent(LifecycleEvent event);
 }
 ```
-Tomcat9中，以下类实现了该接口：
+Tomcat9中,以下类实现了该接口：
 ```
 JreMemoryLeakPreventionListener (org.apache.catalina.core)
 GlobalResourcesLifecycleListener (org.apache.catalina.mbeans)
@@ -447,7 +447,7 @@ AprLifecycleListener (org.apache.catalina.core)
 ```
 
 ## 生命周期方法
-Lifecycle提供了四个生命周期方法，这些方法首先会判断当前的状态和要处理的方法是否匹配，如果不匹配会执行相应方法使其匹配（如在init之前调用了start，会先执行init方法），或者抛出异常。如果匹配或者处理匹配了，则会调用相应的模板方法并设置相应的状态。
+Lifecycle提供了四个生命周期方法，这些方法首先会判断当前的状态和要处理的方法是否匹配，如果不匹配会执行相应方法使其匹配（如在init之前调用了start，会先执行init方法），或者抛出异常。如果匹配或者处理匹配了，则会调用相应的模板方法并设置相应的状态。
 LifecycleBase是其他所有Lifecycle实现类的父类，所以实际调用的是LifecycleBase的生命周期方法，进而调用各子类的模板方法：
 
 ```java
