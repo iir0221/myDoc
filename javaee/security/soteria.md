@@ -27,7 +27,7 @@ Types discovery的目标是创建一个AnnotatedType set，这些AnnotatedType�
 
 这个集合可以在BeforeTypeDiscovery或AfterDiscovery observers 中显式填充
 
-该集合也通过容器的扫描过程自动填充，在这个过程中开发人员可以通过使用ProcessAnnotatedType observer 放置一个hook进行其他操作
+该集合也通过容器的扫描过程自动填充，在这个过程中开发人员可以通过使用ProcessAnnotatedType observer 放置一个hook进行其他操作
 
 ### Adding types before scanning (BeforeBeanDiscovery event)
 Before CDI container start automatic types scan on the class path, it fires the BeforeBeanDiscovery event.
