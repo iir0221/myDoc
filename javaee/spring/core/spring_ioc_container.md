@@ -8,6 +8,13 @@
     * 接口org.springframework.context.ApplicationContext
         * 继承beanFactory，对其进行扩展，包括整合AOP特性，消息处理，事件发布，以及应用级别的context，例如用于webapp的WebApplicationContext
 * 对于大多数的应用场景，无需显示的实例化ApplicationContext，比如在springmvc中，只需在配置文件中配置即可。
+
+
+```
+
+```
+
+
 ### 最常用的ApplicationContext
 * AnnotationConfigApplicationContext
 * AnnotationConfigWebApplicationContext

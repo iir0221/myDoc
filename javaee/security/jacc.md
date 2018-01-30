@@ -1,0 +1,1 @@
+[转载]http://arjan-tijms.omnifaces.org/2014/03/implementing-container-authorization-in.html

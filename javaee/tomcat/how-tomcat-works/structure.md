@@ -65,6 +65,7 @@
 ```
 ## Service
 * Server中的Services相互独立，Service组合了连接器（监听请求的到来，返回响应，处理各种底层网络协议）和Servlet容器(具体处理请求)，一个 Service可以设置多个 Connector，但是只能有一个Container
+* **通过多个Service来实现一个Tomcat安装多个对同名webApp**
 * **Service的作用主要是解耦Continer和Connector**
 * 从配置文件来看Service：
 ```xml
@@ -253,184 +254,7 @@
         reloadable="true"
     />
     ```
-    当这个 reloadable 设为 true 时，war 被修改后 Tomcat 会自动的重新加载这个应用。StandardContext 的backgroundProcess方法实现这个功能：
-```java
-@Override
-public void backgroundProcess() {
-
-    if (!getState().isAvailable())
-        return;
-
-    Loader loader = getLoader();
-    if (loader != null) {
-        try {
-            loader.backgroundProcess();
-        } catch (Exception e) {
-            log.warn(sm.getString(
-                    "standardContext.backgroundProcess.loader", loader), e);
-        }
-    }
-    Manager manager = getManager();
-    if (manager != null) {
-        try {
-            manager.backgroundProcess();
-        } catch (Exception e) {
-            log.warn(sm.getString(
-                    "standardContext.backgroundProcess.manager", manager),
-                    e);
-        }
-    }
-    WebResourceRoot resources = getResources();
-    if (resources != null) {
-        try {
-            resources.backgroundProcess();
-        } catch (Exception e) {
-            log.warn(sm.getString(
-                    "standardContext.backgroundProcess.resources",
-                    resources), e);
-        }
-    }
-    InstanceManager instanceManager = getInstanceManager();
-    if (instanceManager != null) {
-        try {
-            instanceManager.backgroundProcess();
-        } catch (Exception e) {
-            log.warn(sm.getString(
-                    "standardContext.backgroundProcess.instanceManager",
-                    resources), e);
-        }
-    }
-    super.backgroundProcess();
-}
-```
-```java
-public synchronized void reload() {
-    // Validate our current component state
-    if (!getState().isAvailable())
-        throw new IllegalStateException
-            (sm.getString("standardContext.notStarted", getName()));
-
-    if(log.isInfoEnabled())
-        log.info(sm.getString("standardContext.reloadingStarted",
-                getName()));
-
-    // Stop accepting requests temporarily.
-    setPaused(true);
-
-    try {
-        stop();
-    } catch (LifecycleException e) {
-        log.error(
-            sm.getString("standardContext.stoppingContext", getName()), e);
-    }
-
-    try {
-        start();
-    } catch (LifecycleException e) {
-        log.error(
-            sm.getString("standardContext.startingContext", getName()), e);
-    }
-
-    setPaused(false);
-
-    if(log.isInfoEnabled())
-        log.info(sm.getString("standardContext.reloadingCompleted",
-                getName()));
-
-}
-```
-它会调用 reload 方法，而 reload 方法会先调用 stop 方法然后再调用 Start 方法，完成 Context 的一次重新加载。可以看出执行 reload 方法的条件是 reloadable 为 true 和应用被修改。
-* backgroundProcess 方法在后台线程中运行，这个方法是在 ContainerBase 类中定义的内部类 ContainerBackgroundProcessor 被周期调用的，这个类是运行在一个后台线程中，它会周期的执行 run 方法，它的 run 方法会周期调用所有容器的 backgroundProcess 方法，因为所有容器都会继承 ContainerBase 类，所以所有容器都能够在 backgroundProcess 方法中定义周期执行的事件：
-```java
-// -------------------- Background Thread --------------------
-/**
-    * Start the background thread that will periodically check for
-    * session timeouts.
-    */
-protected void threadStart() {
-
-    if (thread != null)
-        return;
-    if (backgroundProcessorDelay <= 0)
-        return;
-
-    threadDone = false;
-    String threadName = "ContainerBackgroundProcessor[" + toString() + "]";
-    thread = new Thread(new ContainerBackgroundProcessor(), threadName);
-    thread.setDaemon(true);
-    thread.start();
-
-}
-```
-```java
-// -------------------------------------- ContainerExecuteDelay Inner Class
-
-/**
-    * Private thread class to invoke the backgroundProcess method
-    * of this container and its children after a fixed delay.
-    */
-protected class ContainerBackgroundProcessor implements Runnable {
-
-    @Override
-    public void run() {
-        Throwable t = null;
-        String unexpectedDeathMessage = sm.getString(
-                "containerBase.backgroundProcess.unexpectedThreadDeath",
-                Thread.currentThread().getName());
-        try {
-            while (!threadDone) {
-                try {
-                    Thread.sleep(backgroundProcessorDelay * 1000L);
-                } catch (InterruptedException e) {
-                    // Ignore
-                }
-                if (!threadDone) {
-                    processChildren(ContainerBase.this);
-                }
-            }
-        } catch (RuntimeException|Error e) {
-            t = e;
-            throw e;
-        } finally {
-            if (!threadDone) {
-                log.error(unexpectedDeathMessage, t);
-            }
-        }
-    }
-
-    protected void processChildren(Container container) {
-        ClassLoader originalClassLoader = null;
-
-        try {
-            if (container instanceof Context) {
-                Loader loader = ((Context) container).getLoader();
-                // Loader will be null for FailedContext instances
-                if (loader == null) {
-                    return;
-                }
-
-                // Ensure background processing for Contexts and Wrappers
-                // is performed under the web app's class loader
-                originalClassLoader = ((Context) container).bind(false, null);
-            }
-            container.backgroundProcess();
-            Container[] children = container.findChildren();
-            for (int i = 0; i < children.length; i++) {
-                if (children[i].getBackgroundProcessorDelay() <= 0) {
-                    processChildren(children[i]);
-                }
-            }
-        } catch (Throwable t) {
-            ExceptionUtils.handleThrowable(t);
-            log.error("Exception invoking periodic operation: ", t);
-        } finally {
-            if (container instanceof Context) {
-                ((Context) container).unbind(false, originalClassLoader);
-            }
-        }
-    }
-}
-```
+    当这个 reloadable 设为 true 时，war 被修改后 Tomcat 会自动的重新加载这个应用.详见[hot_roload and hot_redeploy](./hot_reload_redeploy.md)
 
 Context.xml
 ```xml
@@ -555,8 +379,5 @@ public synchronized Servlet loadServlet() throws ServletException {
 }
 ```
 
-## backgroundProcess
-Container通过backgroundProcess()方法实现后台处理功能。
-Container的基础类ContainerBase在启动组件的同时，异步启动后台处理。各个容器只需要实现Container的backgroundProcess方法即可，不必考虑创建异步线程。
 
 

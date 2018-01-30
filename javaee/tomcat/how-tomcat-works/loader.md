@@ -1,11 +1,49 @@
 # loader
 
 ## tomcat的类加载器，需要满足如下功能
-Servlet规范要求每个web应用都有一个独立的类加载器实例
+**Servlet规范要求每个web应用都有一个独立的类加载器实例**
 * 隔离性，web应用类库相互隔离
 * 灵活性,重新部署web应用不影响其他应用(热部署)
 * 性能，不会搜索其他web应用jar包
 
+## Tomcat ClassLoader层次结构
+![](./image/classloader.jpg)
+Tomcat提供了三个基础的类加载器和Web应用类加载器,三个类加载器指向的路径和包列表由catalina.properties配置
+
+* Common,顶层的公用类加载器，路径为common.loader,默认指向$CATALINA_HOME/lib下的包
+    * Tomcat应用服务器内部和Web应用均可见的类
+* Catalina,用来加载Tomcat应用服务器的类加载器，路径为server.loader,默认为空。此时Tomcat使用Common类加载器加载应用服务器
+    * 只有Tomcat应用服务器内部可见的类
+* Shared,所有Web应用的父加载器，路径为shared.loader，默认为空，此时Tomcat使用Common类加载器作为Web应用的父加载器。
+* Web应用,加载/WEB-INF/classes目录下的未压缩的Class和资源文件以及/WEB-INF/lib目录下的Jar包。
+
+**默认情况下，Common,Calatina,Shared三个类加载器是同一个**
+
+catalina.property
+```xml
+common.loader="${catalina.base}/lib","${catalina.base}/lib/*.jar","${catalina.home}/lib","${catalina.home}/lib/*.jar"
+server.loader=
+shared.loader=
+```
+
+
+
+## Web应用类加载器加载顺序
+* 从缓存中加载
+* 从JVM的Bootstrap类加载器加载
+* 从当前类加载器加载（顺序WEB-INF/classes,WEB-INF/lib）
+* 从父类加载器加载，父类加载器裁采用默认的委派模式。
+### delegate属性
+context.xml文件配置\<Loader delegate="true" /\>
+
+默认为false，用于控制是否启用JAVA委派模式，当配置为true时，Tomcat使用JAVA默认的委派模式
+* 从缓存中加载
+* 从JVM的Bootstrap类加载器加载
+* 从父类加载器加载，父类加载器裁采用默认的委派模式。
+* 从当前类加载器加载（顺序WEB-INF/classes,WEB-INF/lib）
+
+### 默认情况delegate=false时，应该注意的问题
+不要在web应用中包含Servlet规范相关API，否则会覆盖Tomcat提供的Servlet API。
 ## Loader接口
 
 Tomcat载入器是web app载入器，而不仅仅是类载入器。Tomcat载入器\(web app class loader\)会使用一个自定义的类载入器\(class loader\).
@@ -191,14 +229,14 @@ WebappLoader也实现了Lifecycle接口，根据lifecycle一节可知，webappLo
 
 SimpleWrapper.java
 ```java
-	public synchronized void start() throws LifecycleException {
-		//...
-		// Start our subordinate components, if any
-		if ((loader != null) && (loader instanceof Lifecycle))
-			((Lifecycle) loader).start();
+public synchronized void start() throws LifecycleException {
+    //...
+    // Start our subordinate components, if any
+    if ((loader != null) && (loader instanceof Lifecycle))
+        ((Lifecycle) loader).start();
 
-		//...
-	}
+    //...
+}
 ```
 WebappLoader.java
 ```java
@@ -354,5 +392,5 @@ while (!threadDone) {
 }
 ```
 
-## 类载入器：WebappClassLoader类
+
 

@@ -10,7 +10,7 @@
     * 每一个component都有一个id，默认为类名首字母小写
     * <font color=#98FB98>对标@Named</font>
     * 开启@Component,默认关闭
-        * Java Config
+        * Java Config方式
         ```java
         package soundsystem;
         import org.springframework.context.annotation.ComponentScan;
@@ -22,7 +22,7 @@
         public class CDPlayerConfig { 
         }
         ```
-        * Xml
+        * Xml方式
         ```xml
         <?xml version="1.0" encoding="UTF-8"?>
         <beans xmlns="http://www.springframework.org/schema/beans"

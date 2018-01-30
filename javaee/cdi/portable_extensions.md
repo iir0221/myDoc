@@ -6,81 +6,88 @@ CDI portable extension 允许挂起CDI扫描，改变或者增加由CDI Containe
 
 **So to make short, extensions are how developers can configure CDI and override default behaviour created from reading the classes.**
 
-Getting started with CDI extension
+## Getting started with CDI extension
 CDI portable extensions are based on Java SE service-provider.
 
-Service interface is javax.enterprise.inject.spi.Extension, so to add an extension you’ll need to create a class implementing javax.enterprise.inject.spi.Extension interface and add this class qualified name to the META-INF/services/javax.enterprise.inject.spi.Extension service provider text file.
+Service interface is 
+```java
+javax.enterprise.inject.spi.Extension
+```
+ so to add an extension you’ll need to create a class implementing javax.enterprise.inject.spi.Extension interface and add this class qualified name to the **META-INF/services/javax.enterprise.inject.spi.Extension** service provider text file.
 
-Extension feature is defined by adding observers on specific lifecycle event of the CDI container. At boot time, the CDI container will use service provider mechanism to discover all extensions and register these observers.
+Extension feature是通过在CDI容器的特定lifecycle event上添加observers来实现的。 在启动时，CDI容器将使用service provider mechanism来发现所有extensions并注册这些观察者。
 
-This approach allows you to hook on internal lifecycle steps of the container and modify their outcome.
+这种方法允许开发者hook on容器的内部生命周期步骤并修改其结果。
 
-Let’s check what are these step.
-
-Extension step by step
+让我们来看看这些步骤。
+## Extension step by step
 To understand how to work with extensions, we can start by splitting container lifecycle in 4 Big steps:
+![The major steps of the CDI container lifecycle](./images/broaderlifecycle.svg)
 
-The major steps of the CDI container lifecycle
-The major steps of the CDI container lifecycle
-Eah of these step (except "Application running") contains one or more events for which you can define one or more observers in your extension to hook on CDI elements discovery and meta data building.
+除了Application running外，其他步骤都包含一个或多个lifecycle events，允许开发者在其extension的实现中定义一个或多个observers来 hook on CDI elements discovery and meta data building.
 
-Let’s focus on each of these steps and describe the events that you can use in each one.
+## Types discovery
 
-Some examples given below will use new features coming from CDI 2.0. I’ll explain how same result can be obtained in CDI 1.2.
+![Types discovery](./images/typesdiscovery.svg)
 
-Types discovery
-Type discovery can be illustrated like this
+黄色框的部分是extension可以观察的事件和执行的动作，灰色部分是CDI容器内部行为的简化。
 
-Types discovery
-Types discovery
-In this schema (and next ones), yellow boxes are the in which an extension can observes an event and perform actions, grey ones are simplification of internal container behaviour.
-The goal of this step is to create a set of AnnotatedType which will be candidate to become beans.
+Types discovery的目标是创建一个AnnotatedType set，这些AnnotatedType将成为beans的候选。
 
-Ths set can be filled explicitly in a BeforeTypeDiscovery or AfterDiscovery observers
+这个集合可以在BeforeTypeDiscovery或AfterDiscovery observers 中显式填充
 
-It is also filled automatically by the container class scanning process on which developer can place a hook to alter the discovered by using a ProcessAnnotatedType observer.
+该集合也通过容器的扫描过程自动填充，在这个过程中开发人员可以通过使用ProcessAnnotatedType observer 放置一个hook进行其他操作
 
-Let’s see in detail how all this work.
-
-Adding types before scanning (BeforeBeanDiscovery event)
+### Adding types before scanning (BeforeBeanDiscovery event)
 Before CDI container start automatic types scan on the class path, it fires the BeforeBeanDiscovery event.
 
-Observing this events allows addition of a specific type to the set of discovered types or addition of specific CDI annotations like qualifier, stereotype or interceptor binding.
+Observing this events 允许将特定类型添加到AnnotatedType集合或者添加特定的CDI注解，例如qualifier, stereotype or interceptor binding.
 
+```java
 public interface BeforeBeanDiscovery {
+
+  // Add a new qualifier with an Annotation, an AnnotatedType or by using the CDI 2.0 AnnotatedTypeConfigurator
   void addQualifier(Class<? extends Annotation> qualifier); 
+  // Add a new qualifier with an Annotation, an AnnotatedType or by using the CDI 2.0 AnnotatedTypeConfigurator
   void addQualifier(AnnotatedType<? extends Annotation> qualifier); 
+  //Add a new scope Annotation
   void addScope(Class<? extends Annotation> scopeType, boolean normal, boolean passivating); 
+  //Define a new Stereotype by giving its Annotation and the Annotations collection it stands for
   void addStereotype(Class<? extends Annotation> stereotype, Annotation... stereotypeDef); 
+  //Add a new interceptor binding with an Annotation and its meta annotations, an AnnotatedType or by using the CDI 2.0 AnnotatedTypeConfigurator
   void addInterceptorBinding(AnnotatedType<? extends Annotation> bindingType); 
+  //Add a new interceptor binding with an Annotation and its meta annotations, an AnnotatedType or by using the CDI 2.0 AnnotatedTypeConfigurator
   void addInterceptorBinding(Class<? extends Annotation> bindingType, Annotation... bindingTypeDef); 
+  //Add a new AnnotatedType from a custom AnnotatedType or by using the CDI 2.0 AnnotatedTypeConfigurator
   void addAnnotatedType(AnnotatedType<?> type, String id); 
 
+
   /* New methods in CDI 2.0 */
+
+  //Add a new AnnotatedType from a custom AnnotatedType or by using the CDI 2.0 AnnotatedTypeConfigurator
   <T> AnnotatedTypeConfigurator<T> addAnnotatedType(Class<T> type, String id); 
+  // Add a new qualifier with an Annotation, an AnnotatedType or by using the CDI 2.0 AnnotatedTypeConfigurator
   <T extends Annotation> AnnotatedTypeConfigurator<T> configureQualifier(Class<T> qualifier); 
+  //Add a new interceptor binding with an Annotation and its meta annotations, an AnnotatedType or by using the CDI 2.0 AnnotatedTypeConfigurator
   <T extends Annotation> AnnotatedTypeConfigurator<T> configureInterceptorBinding(Class<T> bt); 
 }
-Add a new qualifier with an Annotation, an AnnotatedType or by using the CDI 2.0 AnnotatedTypeConfigurator
-Add a new scope Annotation
-Define a new Stereotype by giving its Annotation and the Annotations collection it stands for
-Add a new interceptor binding with an Annotation and its meta annotations, an AnnotatedType or by using the CDI 2.0 AnnotatedTypeConfigurator
-Add a new AnnotatedType from a custom AnnotatedType or by using the CDI 2.0 AnnotatedTypeConfigurator
-The following example illustrate usage of this event.
+```
 
+example:
+The example is a piece of the Dropwizard Metrics CDI integration extension. It declares a standard annotation (@Metrics) as a CDI qualifier
+```java
+// defining the extension (remember to also add class FQN to META-INF/services/javax.enterprise.inject.spi.Extension text file
 public class MetricsExtension implements Extension { 
-
+    // An observer for the BeforeBeanDiscovery lifecycle event
     public void addMetricAsQual(@Observes BeforeBeanDiscovery bbd) { 
+        // Declaring an annotation from a 3rd party non-CDI framework as a qualifier
         bbd.addQualifier(Metric.class); 
     }
 }
-defining the extension (remember to also add class FQN to META-INF/services/javax.enterprise.inject.spi.Extension text file
-An observer for the BeforeBeanDiscovery lifecycle event
-Declaring an annotation from a 3rd party non-CDI framework as a qualifier
-The example above is a piece of the Dropwizard Metrics CDI integration extension. It declares a standard annotation (@Metrics) as a CDI qualifier.
-
+```
 You can also transform a non-CDI class to have it discovered as a managed bean by the container:
-
+```java
+// class from a legacy framework that we want to integrate into CDI programming model without changing its code
 public class MyLegacyFrameworkService { 
 
     private Configurator config;
@@ -95,143 +102,179 @@ public class MyLegacyFrameworkService {
 public class LegacyIntegrationExtension implements Extension {
 
     public void addLegacyServiceAsBean(@Observes BeforeBeanDiscovery bbd) {
+        // using an AnnotatedTypeConfigurator (new in CDI 2.0) based on the MyLegacyFrameworkService class
         bbd.addAnnotatedType(MyLegacyFrameworkService.class,MyLegacyFrameworkService.class.getName()) 
+                // adding @ApplicationScoped scope on the AnnotatedTypeConfigurator
                 .add(ApplicationScoped.Literal.INSTANCE) 
                 .filterConstructors(c -> c.getParameters().size() == 1)
+                // find the first constructor with one parameters and add the @Inject on it
                 .findFirst().get().add(InjectLiteral.INSTANCE); 
     }
-class from a legacy framework that we want to integrate into CDI programming model without changing its code
-using an AnnotatedTypeConfigurator (new in CDI 2.0) based on the MyLegacyFrameworkService class
-adding @ApplicationScoped scope on the AnnotatedTypeConfigurator
-find the first constructor with one parameters and add the @Inject on it
-The example above use new feature from CDI 2.0: the AnnotatedTypeConfigurator returned by one of the addAnnotatedType() methods of BeforeBeanDiscovery event. If you are in CDI 1.1 you can don the same but you’ll have to implement your own AnnotatedType to do the same in more verbose way. to configure a new AnnotatedType add a scope on it and an @Inject annotation on one of its constructors. At the end of observer invocation, the container will automatically build the matching AnnotatedType from this configurator and add it to the discovered type set.
+```
 
-Automatic types scanning process
-After this first event, the container starts a process of type discovery in the application classpath.
+The example above use new feature from CDI 2.0: 
 
-This scanning can be configured differently for each bean archive (i.e. jar or module) in the classpath.
+the AnnotatedTypeConfigurator returned by one of the addAnnotatedType() methods of BeforeBeanDiscovery event. 
 
-Each jar in the application path may (or may not) contain a beans.xml file defining how types will be scanned by the CDI container for this bean archive.
+If you are in CDI 1.1 you can don the same but you’ll have to implement your own AnnotatedType to do the same in more verbose way. 
 
-Remember that CDI doesn’t provide a global configuration file so each of your bean archive (including the war container others bean archive) must define its discovery mode.
+to configure a new AnnotatedType add a scope on it and an @Inject annotation on one of its constructors. 
 
-There are 3 discovery mode:
+At the end of observer invocation, the container will automatically build the matching AnnotatedType from this configurator and add it to the discovered type set.
 
-none: no type will be discovered for this bean archive
+### Automatic types scanning process
+第一个事件后，容器开始type discovery(in the application classpath)处理过程。
 
-annotated (default mode): only class having specific annotations (bean defining annotation^) will be discovered
+对于类路径中的每个Bean归档（eg jar or module），可以对此扫描进行不同的配置。
 
-all: all types will be discovered
+应用程序路径中的每个jar都可能（或不可能）包含beans.xml文件，该文件定义CDI容器将扫描此Bean归档文件的哪些类。
 
-Discovery mode is inferred by analyzing the bean archive beans.xml file
+请记住，CDI不提供全局配置文件，因此每个bean归档文件（包括war容器其他bean归档文件）都必须定义其发现模式。
 
-Table 1. what is my discovery mode?
-beans.xml file state	discovery mode
-No beans.xml
-annotated
-empty beans.xml
-all
-beans.xml using CDI 1.0 xsd
-all
-beans.xml using CDI 1.1 xsd
-value of bean-discovery-mode attribute
-You can also fine grain type discovery by using exclusion filters
+三种发现模式：
 
-In CDI 2.0 when you are working on Java SE, jars without beans.xml file are ignored by default.
+* none: no type will be discovered for this bean archive
 
-ProcessAnnotatedType event
-After this scanning phase, the container creates an AnnotatedType and fire the ProcessAnnotatedType event for each type discovered (except for annotations).
+* annotated (default mode): only class having specific annotations (bean defining annotation^) will be discovered
 
-public interface ProcessAnnotatedType<X> { 
+* all: all types will be discovered
+```
+The set of bean defining annotations contains:
+
+@ApplicationScoped, @SessionScoped, @ConversationScoped and @RequestScoped annotations,
+
+all other normal scope types,
+
+@Interceptor and @Decorator annotations,
+
+all stereotype annotations (i.e. annotations annotated with @Stereotype),
+
+and the @Dependent scope annotation.
+```
+通过分析beans.xml文件来推断Discovery mode
+
+```
+beans.xml file state	            discovery mode
+No beans.xml                        annotated
+empty beans.xml                     all
+beans.xml using CDI 1.0 xsd         all
+beans.xml using CDI 1.1 xsd         value of bean-discovery-mode attribute
+```
+You can also fine grain(细粒) type discovery by using exclusion filters
+
+**In CDI 2.0 when you are working on Java SE, jars without beans.xml file are ignored by default.**
+
+### ProcessAnnotatedType event
+After this scanning phase, the container creates an AnnotatedType and fire the ProcessAnnotatedType event for each  (except for annotations).
+在扫描阶段之后，容器将为每个type discovered创建一个AnnotatedType，触发ProcessAnnotatedType事件（除了annotations）
+```java
+// 	the event is a parameterized type allowing user to only process AnnotatedType based on a given original type
+public interface ProcessAnnotatedType<X> {
+    // returns the current processed AnnotatedType
     AnnotatedType<X> getAnnotatedType(); 
+    // replaces the processed AnnotatedType 
+    // by a new one defined by implementing AnnotatedType interface 
     void setAnnotatedType(AnnotatedType<X> type); 
+    // remove the processed AnnotatedType from the set of discovered type: this type won’t become a bean
     void veto(); 
 
+
     /* New in CDI 2.0 */
+
+    // replaces the processed AnnotatedType 
+    // with the help of an AnnotatedTypeConfigurator (new in CDI 2.0)
     AnnotatedTypeConfigurator<X> configureAnnotatedType(); 
 }
-the event is a parameterized type allowing user to only process AnnotatedType based on a given original type
-returns the current processed AnnotatedType
-replaces the processed AnnotatedType by a new one defined by implementing AnnotatedType interface or with the help of an AnnotatedTypeConfigurator (new in CDI 2.0)
-remove the processed AnnotatedType from the set of discovered type: this type won’t become a bean
-This event is often use to override configuration on an existing type.
-
-For instance the example below remove adds transactional annotation on the StandardService class in a third party library.
-
+```
+the example below remove adds transactional annotation on the StandardService class in a third party library.
+```java
 public class AddTranscationalToServiceExtension implements Extension {
 
     public void addTransactional(@Observes ProcessAnnotatedType<StandardService> pat) { 
         pat.configureAnnotatedType().add(new AnnotationLiteral<Transactional>(){});
     }
+```
 observer will only be triggered for any AnnotatedType based on StandardService type
 It can also be used to veto type implementing an interface or having a specific annotation (thanks to the @WithAnnotations filter).
-
+```java
 public class VetEntitiesExtension implements Extension {
 
     public void vetoEntities(@Observes @WithAnnotations(Entity.class) ProcessAnnotatedType<?> pat) { 
         pat.veto();
     }
+```
 observer will be triggered for any AnnotatedType based on any type having @Entity annotation
 This last example vetoes all JPA entities in the application to avoid using them as CDI beans.
 
-AfterTypeDiscovery event
-This event closes the type discovery process
-
+### AfterTypeDiscovery event
+这一事件完成type discovery process
+```java
 public interface AfterTypeDiscovery {
+    // these methods give you access to classes list 
+    // discovered as possible alternatives beans, interceptors or decorators. 
+    // You can use these inventory list to check everything you need is here 
+    // or add a new class to them since these lists are mutable
     List<Class<?>> getAlternatives(); 
     List<Class<?>> getInterceptors(); 
     List<Class<?>> getDecorators(); 
     void addAnnotatedType(AnnotatedType<?> type, String id); 
 
     /* New in CDI 2.0 */
+
+    // as in BeforeBeanDiscovery you can add a custom AnnotatedType to the set of discovered AnnotatedType
+    // The following extension checks that 
+    // if LastInterceptor class was discovered as an interceptor,
+    // this one will be invoked after all other interceptors.
     <T> AnnotatedTypeConfigurator<T> addAnnotatedType(Class<T> type, String id); 
 }
-these methods give you access to classes list discovered as possible alternatives beans, interceptors or decorators. You can use these inventory list to check everything you need is here or add a new class to them since these lists are mutable
-as in BeforeBeanDiscovery you can add a custom AnnotatedType to the set of discovered AnnotatedType
-The following extension checks that if LastInterceptor class was discovered as an interceptor, this one will be invoked after all other interceptors.
-
+```
+```java
 public class lastInteceptorExtension implements Extension {
 
-public void lastInterceptorCheck (@Observes AfterTypeDiscovery atd) {
-        List<Class<?>> interceptors = atd.getInterceptors();
-        if(interceptors.indexOf(LastInterceptor.class) < interceptors.size()) {
-            interceptors.remove(LastInterceptor.class);
-            interceptors.add(LastInterceptor.class);
+    public void lastInterceptorCheck (@Observes AfterTypeDiscovery atd) {
+            List<Class<?>> interceptors = atd.getInterceptors();
+            if(interceptors.indexOf(LastInterceptor.class) < interceptors.size()) {
+                interceptors.remove(LastInterceptor.class);
+                interceptors.add(LastInterceptor.class);
+            }
         }
     }
-}
-Beans discovery phase
-In this phase each discovered type is analyzed to check if they are eligible to become beans.
+```
+## Beans discovery phase
 
-If it’s the case a series of events are fired to allow modification of the future bean.
+在这个阶段，对每个discovered type进行分析，以检查他们是否有资格成为beans。
 
-If the bean was not vetoed by an extension, container launch producers and observers discovring processes.
+如果discovered type可以成为一个bean，一系列的事件将被触发去修改未来的bean。
 
-At the end of this phase, extension has opportunity to register custom beans or observers with the AfterBeanDiscovery event.
+如果这个bean没有被一个extension否决，container launch producers and observers discovring processes.
+
+在此阶段结束时，extension有机会使用AfterBeanDiscovery事件注册custom beans or observers
 
 The phase ends with the validation of all the element by the container and the AfterDeploymentValidation event.
 
-The following schema illustrates all the phase steps. While it could looks complicated at first, this process is rather easy to understand.
-
-Beans discovery
-Beans discovery
-ProcessInjectionPoint event
-For each injection point encountered during this process, the container will fire a ProcessInjectionPoint event. Injection points are fired for managed beans, producer methods and observer methods.
-
+![Beans discovery](./images/beansdiscovery.svg)
+### ProcessInjectionPoint event
+对于在此过程中遇到的每个injection point，容器将触发ProcessInjectionPoint事件。 Injection points are fired for managed beans, producer methods and observer methods.
+```java
+// event is a parameterized type allowing observer to target a specific class T containig the injection point or a specific injection point type X
 public interface ProcessInjectionPoint<T, X> { 
+    //returns the InjectionPoint processed by this event
     InjectionPoint getInjectionPoint(); 
-    void setInjectionPoint(InjectionPoint injectionPoint); 
+    void setInjectionPoint
+    // allow replacement of processed InjectionPoint either by implementing custom InjectionPoint 
+    (InjectionPoint injectionPoint); 
+    //allows observer to abort deployment by adding a definition error
     void addDefinitionError(Throwable t); 
 
     /* New in CDI 2.0 */
+
+    // allow replacement of processed InjectionPoint either by using and InjectionPointConfigurator (new CDI in 2.0)
     InjectionPointConfigurator configureInjectionPoint(); 
 }
-event is a parameterized type allowing observer to target a specific class T containig the injection point or a specific injection point type X
-returns the InjectionPoint processed by this event
-allow replacement of processed InjectionPoint either by implementing custom InjectionPoint or using and InjectionPointConfigurator (new CDI in 2.0)
-allows observer to abort deployment by adding a definition error
-An extension can observe this event for multiple reason. For instance it can be used to collect all types for a given qualifier and later create a bean to match these injection points
+```
 
+An extension can observe this event for multiple reason. For instance it can be used to collect all types for a given qualifier and later create a bean to match these injection points
+```java
 public class ConvertExtension implements Extension {
 
     Set<Type> convertTypes = new HashSet();
@@ -243,35 +286,37 @@ public class ConvertExtension implements Extension {
         }
     }
 }
+```
 The example above will create a set of types for all injection points in the application having the @Convert qualifier.
 
 Later it could use this collection to create custom beans matching each types found for instance.
 
-ProcessInjectionTarget event
-An InjectionTarget can be seen as a non managed bean. It mainly provides dependency injection mechanism and some callback feature.
+### ProcessInjectionTarget event
+一个InjectionTarget可以被看作是一个non managed bean。 它主要提供依赖注入机制和一些回调函数。
 
-This event is fired for all elements supporting injection.
-
+```java
+// the event is a parameterized type to target a specific base type of the InjectionTarget to process
 public interface ProcessInjectionTarget<X> { 
+    // returns the AnnotatedType which defined the processed InjectionTarget
     public AnnotatedType<X> getAnnotatedType(); 
+    // returns the InjectionTarget processed by this event
     public InjectionTarget<X> getInjectionTarget(); 
-    public void setInjectionTarget(InjectionTarget<X> injectionTarget); 
+    // allows replacing the processed InjectionTarget
+    public void setInjectionTarget(InjectionTarget<X> injectionTarget);
+    // allows observer to abort deployment by adding a definition error 
     public void addDefinitionError(Throwable t); 
 }
-the event is a parameterized type to target a specific base type of the InjectionTarget to process
-returns the AnnotatedType which defined the processed InjectionTarget
-returns the InjectionTarget processed by this event
-allows replacing the processed InjectionTarget
-allows observer to abort deployment by adding a definition error
+```
 Observing this event allows an extension to override the default InjectionTarget behaviour and perform specific tasks during injection like calling specific feature on a 3rd party framework.
 
-ProcessBeanAttributes event
-This event is fired before registration of a discovered bean in the container.
+### ProcessBeanAttributes event
 
-Observing this event allows attributes modification or registration canceling.
+该事件在discovered bean注册到容器前被触发
 
-This event is fired for all kind of beans:
+该事件允许改变attributes或者取消注册
 
+该事件在所有beans类型触发：
+```
 Managed Beans
 
 Session Beans
@@ -281,27 +326,34 @@ Producer Fields
 Producer Method
 
 Custom Beans
-
+```
+```java
+// The event being a parameterized type allows observing this event only for a given type
 public interface ProcessBeanAttributes<T> { 
+    // returns the Annotated defining the bean 
+    // (i.e an AnnotatedType for managed Bean or a session bean, 
+    // an AnnotatedField or AnnotatedMethod for a producer 
+    // and null for a custom bean)
     public Annotated getAnnotated(); 
+    // returns the processed BeanAttributes 
     public BeanAttributes<T> getBeanAttributes(); 
+    // allows replacement of processed BeanAttributes by implementing the BeanAttributes interface 
     public void setBeanAttributes(BeanAttributes<T> beanAttributes); 
+    // allows observer to abort deployment by adding a definition error
     public void addDefinitionError(Throwable t); 
+    // requests the container to ignore the matching bean and skip its registration
     public void veto(); 
 
     /* New in CDI 2.0 */
+
+    // returns the processed BeanAttributes allows replacement of processed BeanAttributes by using a BeanAttributesConfigurator (new in CDI 2.0)
     public BeanAttributesConfigurator<T> configureBeanAttributes(); 
+    // new method in CDI 2.0 to explicitly skip some restriction in the spec regarding proxy creation
     public void ignoreFinalMethods(); 
 }
-The event being a parameterized type allows observing this event only for a given type
-returns the Annotated defining the bean (i.e an AnnotatedType for managed Bean or a session bean, an AnnotatedField or AnnotatedMethod for a producer and null for a custom bean)
-returns the processed BeanAttributes
-allows replacement of processed BeanAttributes either by implementing the BeanAttributes interface or by using a BeanAttributesConfigurator (new in CDI 2.0)
-allows observer to abort deployment by adding a definition error
-requests the container to ignore the matching bean and skip its registration
-new method in CDI 2.0 to explicitly skip some restriction in the spec regarding proxy creation
+```
 The following extension checks that no beans was added by developer for type SpecialClass and no qualifiers will be registered since it will register a custom bean for it
-
+```java
 public class CheckExtension implements Extension {
 
 public void filterSpecialClassBean(@Observes ProcessBeanAttributes<SpecialClass> pba) {
@@ -309,24 +361,29 @@ public void filterSpecialClassBean(@Observes ProcessBeanAttributes<SpecialClass>
             pba.veto();
     }
 }
-ProcessBean event
-This event is fired when a bean is registered in the container.
-
+```
+### ProcessBean event
+**This event is fired when a bean is registered in the container.**
+```java
+// Parameterized type for better observer filtering
 public interface ProcessBean<X> { 
+    // returns the Annotated defining the bean 
+    // (i.e an AnnotatedType for managed Bean or a session bean, 
+    // an AnnotatedField or AnnotatedMethod for a producer 
+    // and null for a custom bean)
     public Annotated getAnnotated(); 
+    // returns the created Bean
     public Bean<X> getBean(); 
+    // allows observer to abort deployment by adding a definition error
     public void addDefinitionError(Throwable t); 
 }
-Parameterized type for better observer filtering
-returns the Annotated defining the bean (i.e an AnnotatedType for managed Bean or a session bean, an AnnotatedField or AnnotatedMethod for a producer and null for a custom bean)
-returns the created Bean
-allows observer to abort deployment by adding a definition error
-This event is mainly here to check that a specific bean is created and sometimes capture its definition for further use.
+```
+这个事件主要是在这里检查一个特定的bean是否被创建，有时会捕获它的定义以供进一步的使用。
 
 An observer on ProcessBean for all kind of bean. If you want to be more specific, you can use a child of this event to only observe the event for a specific kind of bean.
+![processBean hierarchy](./images/processBean_hierarchy.svg)
 
-processBean hierarchy
-ProcessProducer event
+### ProcessProducer event
 This event is fired for all producers find in the application.
 
 Remember that a producer is a kind of bean. But its definition and discovery depends on the bean that contains it. In other words, producer defined in a class that will not be discovered as bean will be ignored.
@@ -380,7 +437,7 @@ retrieving the registry bean instance
 looking for a metric with the matching name
 if it doesn’t exist we create it by using the original producer code and it to the registry
 we return the metric with the matching name from the registry
-ProcessObserverMethod event
+### ProcessObserverMethod event
 This event is fired for all observers declared in enabled beans.
 
 Before CDI 2.0 it was mainly an event to check existence of an observer method. Since CDI 2.0, this gives more control by allowing ObserverMethod replacement or removing of it.
@@ -408,7 +465,7 @@ public class SwitchExtension implements Extension {
        pom.configureObserverMethod().async(true);
    }
 }
-AfterBeanDiscovery event
+### AfterBeanDiscovery event
 This event is fired after all beans, producers and observer discovery.
 
 It is the last occasion to change or enhance discovered meta data.
@@ -431,7 +488,7 @@ allows creation of an ObserverMethod either by creating a custom implementation 
 add a nex context to the container
 returns a discovered AnnotatedType for the given class and id.
 returns an Iterable on all the discovered AnnotatedType in the application
-AfterDeploymentValidation event
+### AfterDeploymentValidation event
 This last bootstrapping event is only a hook to check that everything is as expected in the meta data (remember that the observer can inject BeanManager to inspect these meta data).
 
 When this event is fired, the meta data in the container are no more mutable and the application is ready to run
@@ -440,7 +497,7 @@ public interface AfterDeploymentValidation {
     void addDeploymentProblem(Throwable t); 
 }
 allows observer to abort deployment by adding a definition error
-Application life and death
+## Application life and death
 From the portable extension perspective we are nearly done.
 
 After this rich phase of bootstrapping, the application runs until an event request its shutting down. It’s when the last portable extension event is fired.
@@ -450,7 +507,7 @@ This event is a hook, to allow cleaning of specific resource created during appl
 
 public interface BeforeShutdown {
 }
-Conclusion
+## Conclusion
 Portable extension are a very powerful tool.
 
 Mastering them may seems difficult, but once you understand most of the SPI and the container lifecycle shown in this post, it’s no more than a kind of big lego box only limited by your imagination.

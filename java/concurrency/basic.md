@@ -101,7 +101,7 @@ public class Test {
     * monitorexit
         * 这两个字节码需要指明锁定和解锁的对象（实例对象或Class对象）
 * 每一个对象都有自己的对象锁
-    * 在执行monitorenter指令时，首先要尝试获取对象的锁,如果这个对象没被锁定，或者当前线程已经拥有了这个对象锁，那么就把锁的计数器加1（锁在同一现充中可冲入）。如果获取对象锁失败，那么当前线程进入阻塞状态，直到对象锁被另外一个线程释放，才有机会获取该对象的锁。
+    * 在执行monitorenter指令时，首先要尝试获取对象的锁,如果这个对象没被锁定，或者当前线程已经拥有了这个对象锁，那么就把锁的计数器加1（锁在同一线程中可重入）。如果获取对象锁失败，那么当前线程进入阻塞状态，直到对象锁被另外一个线程释放，才有机会获取该对象的锁。
     * 在执行monitorexit指令时，会将锁的计数器减1，当计数器为0时，线程将锁释放。
 * Note:
     * 在一个实例的私有属性上使用synchronized，不要在实例方法或this上使用synchronized：
@@ -126,6 +126,24 @@ public class Test {
     线程3调用method2,阻塞，因为锁被线程1持有
 
     线程4调用method3,非阻塞，因为调用method3,无需获取锁
+
+## Thread.sleep() 和 wait()
+* Thread.sleep(1000):将当前线程暂停约1秒
+* wait():让线程进入等待队列
+    * obj.wait():线程正在obj上wait
+    * this.wait()或wait():线程正在this上wait
+
+### 区别
+sleep是Thread类的静态方法，wait是Object的方法
+> sleep()是Thread类的静态方法，其作用仅仅是让当前线程暂停,并不会进入等待队列。
+
+> wait()是Object类的方法。这是因为在执行wait()方法后，线程就会暂停操作，进入”等待队列“，由于每个实例都有一个”等待队列“，因此wait方法(或notify，notifyAll)是Object的方法。
+
+何处使用
+> sleep()可以在任何地方被调用。执行了slepp方法的线程。
+
+> 调用wait()方法的语句可以写在synchronized方法和synchronized代码块，或者二者调用的其他方法中。因为要执行wait方法(或notify，notifyAll)，线程必须持有锁(这是规则)。**wait,notify,notifyAll本来就是设计用来为线程协作服务的**
+
 
 ## 对象的共享
 ### 内存可见性

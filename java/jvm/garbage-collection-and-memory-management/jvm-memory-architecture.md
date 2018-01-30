@@ -1,6 +1,6 @@
 # Java内存模型
 
-![](/image/jvm-memory-architecture.gif)
+![](../image/jvm-memory-architecture.gif)
 
 
 堆是JVM中所有线程共享的，因此在其上进行对象内存的分配均需要进行加锁，这也导致了new对象的开销是比较大的

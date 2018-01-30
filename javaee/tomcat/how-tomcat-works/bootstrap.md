@@ -25,7 +25,7 @@ public static void main(String args[]) {
         // Don't set daemon until init() has completed
         Bootstrap bootstrap = new Bootstrap();
         try {
-            // 初始化ClassLoader,通过ClassLoader创建Catalina实例，并将其赋给属性catalinaDaemon
+            // 初始化Common，catalina,Shared三个ClassLoader,通过ClassLoader创建Catalina实例，并将其赋给属性catalinaDaemon
             bootstrap.init();
         } catch (Throwable t) {
             handleThrowable(t);
@@ -81,7 +81,63 @@ public static void main(String args[]) {
     }
 
 }
+```
+init():初始化common,catalina,shared三个classloader
 
+通过catalinaLoader创建Catalina实例，并将其赋给属性catalinaDaemon
+```java
+/**
+    * Initialize daemon.
+    * @throws Exception Fatal initialization error
+    */
+public void init() throws Exception {
+
+    initClassLoaders();
+
+    Thread.currentThread().setContextClassLoader(catalinaLoader);
+
+    SecurityClassLoad.securityClassLoad(catalinaLoader);
+
+    // Load our startup class and call its process() method
+    if (log.isDebugEnabled())
+        log.debug("Loading startup class");
+    Class<?> startupClass =
+        catalinaLoader.loadClass
+        ("org.apache.catalina.startup.Catalina");
+    Object startupInstance = startupClass.newInstance();
+
+    // Set the shared extensions class loader
+    if (log.isDebugEnabled())
+        log.debug("Setting startup class properties");
+    String methodName = "setParentClassLoader";
+    Class<?> paramTypes[] = new Class[1];
+    paramTypes[0] = Class.forName("java.lang.ClassLoader");
+    Object paramValues[] = new Object[1];
+    paramValues[0] = sharedLoader;
+    Method method =
+        startupInstance.getClass().getMethod(methodName, paramTypes);
+    method.invoke(startupInstance, paramValues);
+
+    catalinaDaemon = startupInstance;
+
+}
+```
+```java
+private void initClassLoaders() {
+    try {
+        commonLoader = createClassLoader("common", null);
+        if( commonLoader == null ) {
+            // no config file, default to this loader - we might be in a 'single' env.
+            commonLoader=this.getClass().getClassLoader();
+        }
+        catalinaLoader = createClassLoader("server", commonLoader);
+        sharedLoader = createClassLoader("shared", commonLoader);
+    } catch (Throwable t) {
+        handleThrowable(t);
+        log.error("Class loader creation threw exception", t);
+        System.exit(1);
+    }
+}
 ```
 start命令的处理调用了三个方法setAwait(),load(),start()。在这三个方法内部具体通过Catalina的实例catalinaDaemon属性，通过反射来调用catalinaDaemon的方法执行。以start()方法为例：
 ```java

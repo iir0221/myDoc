@@ -41,171 +41,36 @@ Files\Java\jdk1.6.0_22\jre\lib\jce.jar;C:\Program Files\Java\jdk1.6.0_22\jre\lib
 
 称为系统类加载器，负责加载应用程序classpath目录下的所有jar和class文件。
 
-### Custom ClassLoader
+## Custom ClassLoader
 除了Java默认提供的三个ClassLoader之外，用户还可以根据需要定义自已的ClassLoader，而这些自定义的ClassLoader都必须继承自
 java.lang.ClassLoader类，也包括Java提供的另外二个ClassLoader（Extension ClassLoader和App ClassLoader）在内，但是Bootstrap ClassLoader不
 继承自ClassLoader，因为它不是一个普通的Java类，底层由C++编写，已嵌入到了JVM内核当中，**当JVM启动后，Bootstrap ClassLoader也随着启动，
 负责加载完核心类库后，并构造Extension ClassLoader和App ClassLoader类加载器。**
- 
-## ClassLoader加载类的原理
-### 原理介绍
-ClassLoader使用的是**双亲委托模型**来搜索类的，每个ClassLoader实例都有一个父类加载器的引用（不是继承的关系，是一个包含的关系），虚拟机内置的类加载器（Bootstrap ClassLoader）本身没有父类加载器，但可以用作其它ClassLoader实例的的父类加载器。当一个ClassLoader实例需要加载某个类时，它会试图亲自搜索某个类之前，先把这个任务委托给它的父类加载器，这个过程是由上至下依次检查的，首先由最顶层的类加载器Bootstrap ClassLoader试图加载，如果没加载到，则把任务转交给Extension ClassLoader试图加载，如果也没加载到，则转交给App ClassLoader 进行加载，如果它也没有加载得到的话，则返回给委托的发起者，由它到指定的文件系统或网络等URL中加载该类。如果它们都没有加载到这个类时，则抛出ClassNotFoundException异常。否则将这个找到的类生成一个类的定义，并将它加载到内存当中，最后返回这个类在内存中的Class实例对象。
- 
-### 为什么要使用双亲委托这种模型呢？
-因为这样可以避免重复加载，当父亲已经加载了该类的时候，就没有必要子ClassLoader再加载一次。考虑到安全因素，我们试想一下，**如果不使用这种委托模式，那我们就可以随时使用自定义的String来动态替代java核心api中定义的类型，这样会存在非常大的安全隐患，而双亲委托的方式，就可以避免这种情况，因为String已经在启动时就被引导类加载器（Bootstrcp ClassLoader）加载，所以用户自定义的ClassLoader永远也无法加载一个自己写的String，除非你改变JDK中ClassLoader搜索类的默认算法。**
 
-### 但是JVM在搜索类的时候，又是如何判定两个class是相同的呢？
-**JVM在判定两个class是否相同时，不仅要判断两个类名是否相同，而且要判断是否由同一个类加载器实例加载的。只有两者同时满足的情况下，JVM才认为这两个class是相同的**。就算两个class是同一份class字节码，如果被两个不同的ClassLoader实例所加载，JVM也会认为它们是两个不同class。比如网络上的一个Java类org.classloader.simple.NetClassLoaderSimple，javac编译之后生成字节码文件NetClassLoaderSimple.class，ClassLoaderA和ClassLoaderB这两个类加载器并读取了NetClassLoaderSimple.class文件，并分别定义出了java.lang.Class实例来表示这个类，对于JVM来说，它们是两个不同的实例对象，但它们确实是同一份字节码文件，如果试图将这个Class实例生成具体的对象进行转换时，就会抛运行时异常java.lang.ClassCaseException，提示这是两个不同的类型。现在通过实例来验证上述所描述的是否正确：
-
-* 在web服务器上建一个org.classloader.simple.NetClassLoaderSimple.java类
-```java
-package org.classloader.simple;  
-  
-public class NetClassLoaderSimple {  
-      
-    private NetClassLoaderSimple instance;  
-  
-    public void setNetClassLoaderSimple(Object obj) {  
-        this.instance = (NetClassLoaderSimple)obj;  
-    }  
-}  
-```
-org.classloader.simple.NetClassLoaderSimple类的setNetClassLoaderSimple方法接收一个Object类型参数，并将它强制转换成org.classloader.simple.NetClassLoaderSimple类型。
-
-* 测试两个class是否相同（NetWorkClassLoader.java）
-```java
-package classloader;  
-  
-public class NewworkClassLoaderTest {  
-  
-    public static void main(String[] args) {  
-        try {  
-            //测试加载网络中的class文件  
-            String rootUrl = "http://localhost:8080/httpweb/classes";  
-            String className = "org.classloader.simple.NetClassLoaderSimple";  
-            NetworkClassLoader ncl1 = new NetworkClassLoader(rootUrl);  
-            NetworkClassLoader ncl2 = new NetworkClassLoader(rootUrl);  
-            Class<?> clazz1 = ncl1.loadClass(className);  
-            Class<?> clazz2 = ncl2.loadClass(className);  
-            Object obj1 = clazz1.newInstance();  
-            Object obj2 = clazz2.newInstance();  
-            clazz1.getMethod("setNetClassLoaderSimple", Object.class).invoke(obj1, obj2);  
-        } catch (Exception e) {  
-            e.printStackTrace();  
-        }  
-    }  
-      
-}  
-```
-首先获得网络上一个class文件的二进制名称，然后通过自定义的类加载器NetworkClassLoader创建两个实例，并根据网络地址分别加载这份class，并得到这两个ClassLoader实例加载后生成的Class实例clazz1和clazz2，最后将这两个Class实例分别生成具体的实例对象obj1和obj2，再通过反射调用clazz1中的setNetClassLoaderSimple方法。
-
-* 查看测试结果
-![](images/same_class.gif)
-
-
-结论：从结果中可以看出，虽然是同一份class字节码文件，但是由于被两个不同的ClassLoader实例所加载，所以JVM认为它们就是两个不同的类。
-
-## ClassLoader的体系架构：
-![](images/structure.gif)
- 
-## 验证ClassLoader加载类的原理
-### ### 由AppClassLoader来加载类
-```java
-ClassLoader loader = ClassLoaderTest.class.getClassLoader();    //获得加载ClassLoaderTest.class这个类的类加载器  
-while(loader != null) {  
-    System.out.println(loader);  
-    loader = loader.getParent();    //获得父类加载器的引用  
-}  
-System.out.println(loader); 
-``` 
-打印结果：
-![](images/standard_classloader.gif)
- 
-第一行结果说明：ClassLoaderTest的类加载器是AppClassLoader。
-
-第二行结果说明：AppClassLoader的类加器是ExtClassLoader，即parent=ExtClassLoader。
-
-第三行结果说明：ExtClassLoader的类加器是Bootstrap ClassLoader，因为Bootstrap ClassLoader不是一个普通的Java类，所以ExtClassLoader的parent=null，所以第三行的打印结果为null就是这个原因。
- 
-### 由ExtClassLoader来加载类
-将ClassLoaderTest.class打包成ClassLoaderTest.jar，放到Extension ClassLoader的加载目录下（JAVA_HOME/jre/lib/ext），然后重新运行这个程序，得到的结果会是什么样呢？
-
- 
-打印结果：
-![](images/standard_classloader2.gif)
- 
-打印结果分析：
-为什么第一行的结果是ExtClassLoader呢？
-因为ClassLoader的委托模型机制，当我们要用ClassLoaderTest.class这个类的时候，AppClassLoader在试图加载之前，先委托给Bootstrcp ClassLoader，Bootstracp ClassLoader发现自己没找到，它就告诉ExtClassLoader，然后Extension ClassLoader拿着这个类去它指定的类路径（JAVA_HOME/jre/lib/ext）试图加载，它发现在ClassLoaderTest.jar这样一个文件中包含ClassLoaderTest.class这样的一个文件，然后它把找到的这个类加载到内存当中，并生成这个类的Class实例对象，最后把这个实例返回。所以ClassLoaderTest.class的类加载器是ExtClassLoader。
- 
-第二行的结果为null，是因为ExtClassLoader的父类加载器是Bootstrap ClassLoader。
- 
-### 由Bootstrcp ClassLoader来加载类
-用Bootstrcp ClassLoader来加载ClassLoaderTest.class，有两种方式：
-
-* 在jvm中添加-Xbootclasspath参数，指定Bootstrcp ClassLoader加载类的路径，并追加我们自已的jar（ClassTestLoader.jar）
-* 将class文件放到JAVA_HOME/jre/classes/目录下（上面有提到）
-
-#### -Xbootclasspath
-
-（我用的是Eclipse开发工具，用命令行是在java命令后面添加-Xbootclasspath参数）
-打开Run配置对话框：
-![](images/xbootclasspath.gif)
-配置好如图中所述的参数后，重新运行程序，产的结果如下所示：（类加载的过程，只摘下了一部份）
-打印结果：
-```
-[Loaded java.io.FileReader from C:\Program Files\Java\jdk1.6.0_22\jre\lib\rt.jar]  
-[Loaded sun.nio.cs.StreamDecoder from C:\Program Files\Java\jdk1.6.0_22\jre\lib\rt.jar]  
-[Loaded java.util.ArrayList from C:\Program Files\Java\jdk1.6.0_22\jre\lib\rt.jar]  
-[Loaded java.lang.reflect.Array from C:\Program Files\Java\jdk1.6.0_22\jre\lib\rt.jar]  
-[Loaded java.util.Locale from C:\Program Files\Java\jdk1.6.0_22\jre\lib\rt.jar]  
-[Loaded java.util.concurrent.ConcurrentMap from C:\Program Files\Java\jdk1.6.0_22\jre\lib\rt.jar]  
-[Loaded java.util.concurrent.ConcurrentHashMap from C:\Program Files\Java\jdk1.6.0_22\jre\lib\rt.jar]  
-[Loaded java.util.concurrent.locks.Lock from C:\Program Files\Java\jdk1.6.0_22\jre\lib\rt.jar]  
-[Loaded java.util.concurrent.locks.ReentrantLock from C:\Program Files\Java\jdk1.6.0_22\jre\lib\rt.jar]  
-[Loaded java.util.concurrent.ConcurrentHashMap$Segment from C:\Program Files\Java\jdk1.6.0_22\jre\lib\rt.jar]  
-[Loaded java.util.concurrent.locks.AbstractOwnableSynchronizer from C:\Program Files\Java\jdk1.6.0_22\jre\lib\rt.jar]  
-[Loaded java.util.concurrent.locks.AbstractQueuedSynchronizer from C:\Program Files\Java\jdk1.6.0_22\jre\lib\rt.jar]  
-[Loaded java.util.concurrent.locks.ReentrantLock$Sync from C:\Program Files\Java\jdk1.6.0_22\jre\lib\rt.jar]  
-[Loaded java.util.concurrent.locks.ReentrantLock$NonfairSync from C:\Program Files\Java\jdk1.6.0_22\jre\lib\rt.jar]  
-[Loaded java.util.concurrent.locks.AbstractQueuedSynchronizer$Node from C:\Program Files\Java\jdk1.6.0_22\jre\lib\rt.jar]  
-[Loaded java.util.concurrent.ConcurrentHashMap$HashEntry from C:\Program Files\Java\jdk1.6.0_22\jre\lib\rt.jar]  
-[Loaded java.lang.CharacterDataLatin1 from C:\Program Files\Java\jdk1.6.0_22\jre\lib\rt.jar]  
-[Loaded java.io.ObjectStreamClass from C:\Program Files\Java\jdk1.6.0_22\jre\lib\rt.jar]  
-[Loaded sun.net.www.ParseUtil from C:\Program Files\Java\jdk1.6.0_22\jre\lib\rt.jar]  
-[Loaded java.util.BitSet from C:\Program Files\Java\jdk1.6.0_22\jre\lib\rt.jar]  
-[Loaded java.net.Parts from C:\Program Files\Java\jdk1.6.0_22\jre\lib\rt.jar]  
-[Loaded java.net.URLStreamHandler from C:\Program Files\Java\jdk1.6.0_22\jre\lib\rt.jar]  
-[Loaded sun.net.www.protocol.file.Handler from C:\Program Files\Java\jdk1.6.0_22\jre\lib\rt.jar]  
-[Loaded java.util.HashSet from C:\Program Files\Java\jdk1.6.0_22\jre\lib\rt.jar]  
-[Loaded sun.net.www.protocol.jar.Handler from C:\Program Files\Java\jdk1.6.0_22\jre\lib\rt.jar]  
-[Loaded sun.misc.Launcher$AppClassLoader from C:\Program Files\Java\jdk1.6.0_22\jre\lib\rt.jar]  
-[Loaded sun.misc.Launcher$AppClassLoader$1 from C:\Program Files\Java\jdk1.6.0_22\jre\lib\rt.jar]  
-[Loaded java.lang.SystemClassLoaderAction from C:\Program Files\Java\jdk1.6.0_22\jre\lib\rt.jar]  
-[Path C:\Program Files\Java\jdk1.6.0_22\jre\classes]  
-[Loaded classloader.ClassLoaderTest from C:\Program Files\Java\jdk1.6.0_22\jre\classes]  
-null  //这是打印的结果  
-C:\Program Files\Java\jdk1.6.0_22\jre\lib\resources.jar;C:\Program Files\Java\jdk1.6.0_22\jre\lib\rt.jar;  
-C:\Program Files\Java\jdk1.6.0_22\jre\lib\sunrsasign.jar;C:\Program Files\Java\jdk1.6.0_22\jre\lib\jsse.jar;  
-C:\Program Files\Java\jdk1.6.0_22\jre\lib\jce.jar;C:\Program Files\Java\jdk1.6.0_22\jre\lib\charsets.jar;  
-C:\Program Files\Java\jdk1.6.0_22\jre\classes;c:\ClassLoaderTest.jar    
-//这一段是System.out.println(System.getProperty("sun.boot.class.path"));打印出来的。这个路径就是Bootstrcp ClassLoader默认搜索类的路径  
-[Loaded java.lang.Shutdown from C:\Program Files\Java\jdk1.6.0_22\jre\lib\rt.jar]  
-[Loaded java.lang.Shutdown$Lock from C:\Program Files\Java\jdk1.6.0_22\jre\lib\rt.jar]  
-```
-#### 将ClassLoaderTest.jar解压后，放到JAVA_HOME/jre/classes目录下,
-提示：jre目录下默认没有classes目录，需要自己手动创建一个
-
-打印结果：
-```
-null
-```
-从结果中可以看出，两种方式都实现了将ClassLoaderTest.class由Bootstrcp ClassLoader加载成功了。
- 
-## 定义自已的ClassLoader
 ### 为什么还要定义自已的类加载器呢？
 
 **因为Java中提供的默认ClassLoader，只加载指定目录下的jar和class，如果我们想加载其它位置的类或jar时，比如：我要加载网络上的一个class文件，通过动态加载到内存之后，要调用这个类中的方法实现我的业务逻辑。在这样的情况下，默认的ClassLoader就不能满足我们的需求了，所以需要定义自己的ClassLoader。**
+
+### 相关API
+```java
+java.lang.Class
+ClassLoader getClassLoader()
+
+java.lang.ClassLoader
+ClassLoader getParent()
+static ClassLoader getSystemClassLoader()
+protected Class findClass(String name)
+类加载器应该覆盖该方法，以查找类的字节码，并通过调用defineClass方法将字节码传递给虚拟机。参数name以.作为分隔符，并且不使用.class后缀
+Class defineClass(String name,byte[] byteCodeData,int offset,int length)
+将一个新的类添加到虚拟机，其字节码在指定的数据范围中。
+java.net.URLClassLoader
+URLClassLoader(URL[] urls)
+URLClassLoader(URL[] urls, ClassLoader parent)
+
+java.lang.Thread
+ClassLoader getContextClassLoader()
+void setContextClassLoader(ClassLoader loader)
+```
 定义自已的类加载器分为两步：
 * 继承java.lang.ClassLoader
 * 重写父类的findClass方法
@@ -373,8 +238,343 @@ public class ClassLoaderServletTest extends HttpServlet {
   </welcome-file-list>  
 </web-app>  
 ```
-# 访问Servlet，获得显示结果
+* 访问Servlet，获得显示结果
 ![](images/3.gif)
+
+### Tomcat WebappClassLoaderBase findClass
+```java
+/**
+    * Find the specified class in our local repositories, if possible.  If
+    * not found, throw <code>ClassNotFoundException</code>.
+    *
+    * @param name The binary name of the class to be loaded
+    *
+    * @exception ClassNotFoundException if the class was not found
+    */
+@Override
+public Class<?> findClass(String name) throws ClassNotFoundException {
+
+    if (log.isDebugEnabled())
+        log.debug("    findClass(" + name + ")");
+
+    checkStateForClassLoading(name);
+
+    // (1) Permission to define this class when using a SecurityManager
+    if (securityManager != null) {
+        int i = name.lastIndexOf('.');
+        if (i >= 0) {
+            try {
+                if (log.isTraceEnabled())
+                    log.trace("      securityManager.checkPackageDefinition");
+                securityManager.checkPackageDefinition(name.substring(0,i));
+            } catch (Exception se) {
+                if (log.isTraceEnabled())
+                    log.trace("      -->Exception-->ClassNotFoundException", se);
+                throw new ClassNotFoundException(name, se);
+            }
+        }
+    }
+
+    // Ask our superclass to locate this class, if possible
+    // (throws ClassNotFoundException if it is not found)
+    Class<?> clazz = null;
+    try {
+        if (log.isTraceEnabled())
+            log.trace("      findClassInternal(" + name + ")");
+        try {
+            if (securityManager != null) {
+                PrivilegedAction<Class<?>> dp =
+                    new PrivilegedFindClassByName(name);
+                clazz = AccessController.doPrivileged(dp);
+            } else {
+                clazz = findClassInternal(name);
+            }
+        } catch(AccessControlException ace) {
+            log.warn("WebappClassLoader.findClassInternal(" + name
+                    + ") security exception: " + ace.getMessage(), ace);
+            throw new ClassNotFoundException(name, ace);
+        } catch (RuntimeException e) {
+            if (log.isTraceEnabled())
+                log.trace("      -->RuntimeException Rethrown", e);
+            throw e;
+        }
+        if ((clazz == null) && hasExternalRepositories) {
+            try {
+                clazz = super.findClass(name);
+            } catch(AccessControlException ace) {
+                log.warn("WebappClassLoader.findClassInternal(" + name
+                        + ") security exception: " + ace.getMessage(), ace);
+                throw new ClassNotFoundException(name, ace);
+            } catch (RuntimeException e) {
+                if (log.isTraceEnabled())
+                    log.trace("      -->RuntimeException Rethrown", e);
+                throw e;
+            }
+        }
+        if (clazz == null) {
+            if (log.isDebugEnabled())
+                log.debug("    --> Returning ClassNotFoundException");
+            throw new ClassNotFoundException(name);
+        }
+    } catch (ClassNotFoundException e) {
+        if (log.isTraceEnabled())
+            log.trace("    --> Passing on ClassNotFoundException");
+        throw e;
+    }
+
+    // Return the class we have located
+    if (log.isTraceEnabled())
+        log.debug("      Returning class " + clazz);
+
+    if (log.isTraceEnabled()) {
+        ClassLoader cl;
+        if (Globals.IS_SECURITY_ENABLED){
+            cl = AccessController.doPrivileged(
+                new PrivilegedGetClassLoader(clazz));
+        } else {
+            cl = clazz.getClassLoader();
+        }
+        log.debug("      Loaded by " + cl.toString());
+    }
+    return (clazz);
+
+}
+```
+
+## Class.forName的类加载器
+* Class.forName(String className)使用的类加载器是调用者的类加载器，不一定是System类加载器
+* Class.forName(String name,boolean initialize,ClassLoader loader)可以指定类加载器，推荐通过这种方式来获取类
+```java
+For example, in an instance method the expression:
+
+Class.forName("Foo")
+is equivalent to:
+Class.forName("Foo", true, this.getClass().getClassLoader())
+```
+```java
+public class Test {
+    public static void main(String[] args) {
+        Class<?> clazz = null;
+        try {
+            clazz = Test.class.getClassLoader().loadClass("Test");
+            Method method = clazz.getMethod("currentClassLoader");
+            method.invoke(clazz.newInstance());
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        ClassLoader classLoader = new ClassLoader() {
+            @Override
+            public Class<?> loadClass(String name) throws ClassNotFoundException {
+                String fileName = name.substring(name.lastIndexOf(".") + 1) + ".class";
+                InputStream in = getClass().getResourceAsStream(fileName);
+                if (in == null) {
+                    return super.loadClass(name);
+                }
+                byte[] b = null;
+                try {
+                    b = new byte[in.available()];
+                    in.read(b);
+                    in.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+                return defineClass(name, b, 0, b.length);
+            }
+        };
+
+        Class<?> clazz2 = null;
+        try {
+            clazz2 = classLoader.loadClass("Test");
+            Method method = clazz2.getMethod("currentClassLoader");
+            method.invoke(clazz2.newInstance());
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    public void currentClassLoader() {
+        try {
+            System.out.println(Class.forName("Color").getClassLoader());
+        } catch (ClassNotFoundException e) {
+            e.printStackTrace();
+        }
+    }
+}
+```
+```
+sun.misc.Launcher$AppClassLoader@18b4aac2
+Test$1@77459877
+```
+## 当前线程上下文类加载器
+* 主线程的类加载器是系统的类加载器
+* 当新线程创建时，它的上下文类加载器会被设置为创建该线程的上下文类加载器
+* 因此，如果没有任何特殊操作，所有线程的上下文类加载器都是系统类加载器
+* 当然也可以设置某个线程的类加载器
+```java
+Thread t = Thread.currentThread();
+t.setContextClassLoader(loader);
+```
+
+## Classloader作为命名空间
+一个类是有它的限定名+Classloader来决定的，因此在一个虚拟机中，可以由两个类拥有同样的限定名
+
+## ClassLoader加载类的原理
+### 原理介绍
+ClassLoader使用的是**双亲委托模型**来搜索类的，每个ClassLoader实例都有一个父类加载器的引用（不是继承的关系，是一个包含的关系），虚拟机内置的类加载器（Bootstrap ClassLoader）本身没有父类加载器，但可以用作其它ClassLoader实例的的父类加载器。当一个ClassLoader实例需要加载某个类时，它会试图亲自搜索某个类之前，先把这个任务委托给它的父类加载器，这个过程是由上至下依次检查的，首先由最顶层的类加载器Bootstrap ClassLoader试图加载，如果没加载到，则把任务转交给Extension ClassLoader试图加载，如果也没加载到，则转交给App ClassLoader 进行加载，如果它也没有加载得到的话，则返回给委托的发起者，由它到指定的文件系统或网络等URL中加载该类。如果它们都没有加载到这个类时，则抛出ClassNotFoundException异常。否则将这个找到的类生成一个类的定义，并将它加载到内存当中，最后返回这个类在内存中的Class实例对象。
+ 
+### 为什么要使用双亲委托这种模型呢？
+因为这样可以避免重复加载，当父亲已经加载了该类的时候，就没有必要子ClassLoader再加载一次。考虑到安全因素，我们试想一下，**如果不使用这种委托模式，那我们就可以随时使用自定义的String来动态替代java核心api中定义的类型，这样会存在非常大的安全隐患，而双亲委托的方式，就可以避免这种情况，因为String已经在启动时就被引导类加载器（Bootstrcp ClassLoader）加载，所以用户自定义的ClassLoader永远也无法加载一个自己写的String，除非你改变JDK中ClassLoader搜索类的默认算法。**
+
+### 但是JVM在搜索类的时候，又是如何判定两个class是相同的呢？
+**JVM在判定两个class是否相同时，不仅要判断两个类名是否相同，而且要判断是否由同一个类加载器实例加载的。只有两者同时满足的情况下，JVM才认为这两个class是相同的**。就算两个class是同一份class字节码，如果被两个不同的ClassLoader实例所加载，JVM也会认为它们是两个不同class。比如网络上的一个Java类org.classloader.simple.NetClassLoaderSimple，javac编译之后生成字节码文件NetClassLoaderSimple.class，ClassLoaderA和ClassLoaderB这两个类加载器并读取了NetClassLoaderSimple.class文件，并分别定义出了java.lang.Class实例来表示这个类，对于JVM来说，它们是两个不同的实例对象，但它们确实是同一份字节码文件，如果试图将这个Class实例生成具体的对象进行转换时，就会抛运行时异常java.lang.ClassCaseException，提示这是两个不同的类型。现在通过实例来验证上述所描述的是否正确：
+
+* 在web服务器上建一个org.classloader.simple.NetClassLoaderSimple.java类
+```java
+package org.classloader.simple;  
+  
+public class NetClassLoaderSimple {  
+      
+    private NetClassLoaderSimple instance;  
+  
+    public void setNetClassLoaderSimple(Object obj) {  
+        this.instance = (NetClassLoaderSimple)obj;  
+    }  
+}  
+```
+org.classloader.simple.NetClassLoaderSimple类的setNetClassLoaderSimple方法接收一个Object类型参数，并将它强制转换成org.classloader.simple.NetClassLoaderSimple类型。
+
+* 测试两个class是否相同（NetWorkClassLoader.java）
+```java
+package classloader;  
+  
+public class NewworkClassLoaderTest {  
+  
+    public static void main(String[] args) {  
+        try {  
+            //测试加载网络中的class文件  
+            String rootUrl = "http://localhost:8080/httpweb/classes";  
+            String className = "org.classloader.simple.NetClassLoaderSimple";  
+            NetworkClassLoader ncl1 = new NetworkClassLoader(rootUrl);  
+            NetworkClassLoader ncl2 = new NetworkClassLoader(rootUrl);  
+            Class<?> clazz1 = ncl1.loadClass(className);  
+            Class<?> clazz2 = ncl2.loadClass(className);  
+            Object obj1 = clazz1.newInstance();  
+            Object obj2 = clazz2.newInstance();  
+            clazz1.getMethod("setNetClassLoaderSimple", Object.class).invoke(obj1, obj2);  
+        } catch (Exception e) {  
+            e.printStackTrace();  
+        }  
+    }  
+      
+}  
+```
+首先获得网络上一个class文件的二进制名称，然后通过自定义的类加载器NetworkClassLoader创建两个实例，并根据网络地址分别加载这份class，并得到这两个ClassLoader实例加载后生成的Class实例clazz1和clazz2，最后将这两个Class实例分别生成具体的实例对象obj1和obj2，再通过反射调用clazz1中的setNetClassLoaderSimple方法。
+
+* 查看测试结果
+![](images/same_class.gif)
+
+
+结论：从结果中可以看出，虽然是同一份class字节码文件，但是由于被两个不同的ClassLoader实例所加载，所以JVM认为它们就是两个不同的类。
+
+## ClassLoader的体系架构：
+![](images/structure.gif)
+ 
+## 验证ClassLoader加载类的原理
+### 由AppClassLoader来加载类
+```java
+ClassLoader loader = ClassLoaderTest.class.getClassLoader();    //获得加载ClassLoaderTest.class这个类的类加载器  
+while(loader != null) {  
+    System.out.println(loader);  
+    loader = loader.getParent();    //获得父类加载器的引用  
+}  
+System.out.println(loader); 
+``` 
+打印结果：
+![](images/standard_classloader.gif)
+ 
+第一行结果说明：ClassLoaderTest的类加载器是AppClassLoader。
+
+第二行结果说明：AppClassLoader的类加器是ExtClassLoader，即parent=ExtClassLoader。
+
+第三行结果说明：ExtClassLoader的类加器是Bootstrap ClassLoader，因为Bootstrap ClassLoader不是一个普通的Java类，所以ExtClassLoader的parent=null，所以第三行的打印结果为null就是这个原因。
+ 
+### 由ExtClassLoader来加载类
+将ClassLoaderTest.class打包成ClassLoaderTest.jar，放到Extension ClassLoader的加载目录下（JAVA_HOME/jre/lib/ext），然后重新运行这个程序，得到的结果会是什么样呢？
+
+ 
+打印结果：
+![](images/standard_classloader2.gif)
+ 
+打印结果分析：
+为什么第一行的结果是ExtClassLoader呢？
+因为ClassLoader的委托模型机制，当我们要用ClassLoaderTest.class这个类的时候，AppClassLoader在试图加载之前，先委托给Bootstrcp ClassLoader，Bootstracp ClassLoader发现自己没找到，它就告诉ExtClassLoader，然后Extension ClassLoader拿着这个类去它指定的类路径（JAVA_HOME/jre/lib/ext）试图加载，它发现在ClassLoaderTest.jar这样一个文件中包含ClassLoaderTest.class这样的一个文件，然后它把找到的这个类加载到内存当中，并生成这个类的Class实例对象，最后把这个实例返回。所以ClassLoaderTest.class的类加载器是ExtClassLoader。
+ 
+第二行的结果为null，是因为ExtClassLoader的父类加载器是Bootstrap ClassLoader。
+ 
+### 由Bootstrcp ClassLoader来加载类
+用Bootstrcp ClassLoader来加载ClassLoaderTest.class，有两种方式：
+
+* 在jvm中添加-Xbootclasspath参数，指定Bootstrcp ClassLoader加载类的路径，并追加我们自已的jar（ClassTestLoader.jar）
+* 将class文件放到JAVA_HOME/jre/classes/目录下（上面有提到）
+
+#### -Xbootclasspath
+
+（我用的是Eclipse开发工具，用命令行是在java命令后面添加-Xbootclasspath参数）
+打开Run配置对话框：
+![](images/xbootclasspath.gif)
+配置好如图中所述的参数后，重新运行程序，产的结果如下所示：（类加载的过程，只摘下了一部份）
+打印结果：
+```
+[Loaded java.io.FileReader from C:\Program Files\Java\jdk1.6.0_22\jre\lib\rt.jar]  
+[Loaded sun.nio.cs.StreamDecoder from C:\Program Files\Java\jdk1.6.0_22\jre\lib\rt.jar]  
+[Loaded java.util.ArrayList from C:\Program Files\Java\jdk1.6.0_22\jre\lib\rt.jar]  
+[Loaded java.lang.reflect.Array from C:\Program Files\Java\jdk1.6.0_22\jre\lib\rt.jar]  
+[Loaded java.util.Locale from C:\Program Files\Java\jdk1.6.0_22\jre\lib\rt.jar]  
+[Loaded java.util.concurrent.ConcurrentMap from C:\Program Files\Java\jdk1.6.0_22\jre\lib\rt.jar]  
+[Loaded java.util.concurrent.ConcurrentHashMap from C:\Program Files\Java\jdk1.6.0_22\jre\lib\rt.jar]  
+[Loaded java.util.concurrent.locks.Lock from C:\Program Files\Java\jdk1.6.0_22\jre\lib\rt.jar]  
+[Loaded java.util.concurrent.locks.ReentrantLock from C:\Program Files\Java\jdk1.6.0_22\jre\lib\rt.jar]  
+[Loaded java.util.concurrent.ConcurrentHashMap$Segment from C:\Program Files\Java\jdk1.6.0_22\jre\lib\rt.jar]  
+[Loaded java.util.concurrent.locks.AbstractOwnableSynchronizer from C:\Program Files\Java\jdk1.6.0_22\jre\lib\rt.jar]  
+[Loaded java.util.concurrent.locks.AbstractQueuedSynchronizer from C:\Program Files\Java\jdk1.6.0_22\jre\lib\rt.jar]  
+[Loaded java.util.concurrent.locks.ReentrantLock$Sync from C:\Program Files\Java\jdk1.6.0_22\jre\lib\rt.jar]  
+[Loaded java.util.concurrent.locks.ReentrantLock$NonfairSync from C:\Program Files\Java\jdk1.6.0_22\jre\lib\rt.jar]  
+[Loaded java.util.concurrent.locks.AbstractQueuedSynchronizer$Node from C:\Program Files\Java\jdk1.6.0_22\jre\lib\rt.jar]  
+[Loaded java.util.concurrent.ConcurrentHashMap$HashEntry from C:\Program Files\Java\jdk1.6.0_22\jre\lib\rt.jar]  
+[Loaded java.lang.CharacterDataLatin1 from C:\Program Files\Java\jdk1.6.0_22\jre\lib\rt.jar]  
+[Loaded java.io.ObjectStreamClass from C:\Program Files\Java\jdk1.6.0_22\jre\lib\rt.jar]  
+[Loaded sun.net.www.ParseUtil from C:\Program Files\Java\jdk1.6.0_22\jre\lib\rt.jar]  
+[Loaded java.util.BitSet from C:\Program Files\Java\jdk1.6.0_22\jre\lib\rt.jar]  
+[Loaded java.net.Parts from C:\Program Files\Java\jdk1.6.0_22\jre\lib\rt.jar]  
+[Loaded java.net.URLStreamHandler from C:\Program Files\Java\jdk1.6.0_22\jre\lib\rt.jar]  
+[Loaded sun.net.www.protocol.file.Handler from C:\Program Files\Java\jdk1.6.0_22\jre\lib\rt.jar]  
+[Loaded java.util.HashSet from C:\Program Files\Java\jdk1.6.0_22\jre\lib\rt.jar]  
+[Loaded sun.net.www.protocol.jar.Handler from C:\Program Files\Java\jdk1.6.0_22\jre\lib\rt.jar]  
+[Loaded sun.misc.Launcher$AppClassLoader from C:\Program Files\Java\jdk1.6.0_22\jre\lib\rt.jar]  
+[Loaded sun.misc.Launcher$AppClassLoader$1 from C:\Program Files\Java\jdk1.6.0_22\jre\lib\rt.jar]  
+[Loaded java.lang.SystemClassLoaderAction from C:\Program Files\Java\jdk1.6.0_22\jre\lib\rt.jar]  
+[Path C:\Program Files\Java\jdk1.6.0_22\jre\classes]  
+[Loaded classloader.ClassLoaderTest from C:\Program Files\Java\jdk1.6.0_22\jre\classes]  
+null  //这是打印的结果  
+C:\Program Files\Java\jdk1.6.0_22\jre\lib\resources.jar;C:\Program Files\Java\jdk1.6.0_22\jre\lib\rt.jar;  
+C:\Program Files\Java\jdk1.6.0_22\jre\lib\sunrsasign.jar;C:\Program Files\Java\jdk1.6.0_22\jre\lib\jsse.jar;  
+C:\Program Files\Java\jdk1.6.0_22\jre\lib\jce.jar;C:\Program Files\Java\jdk1.6.0_22\jre\lib\charsets.jar;  
+C:\Program Files\Java\jdk1.6.0_22\jre\classes;c:\ClassLoaderTest.jar    
+//这一段是System.out.println(System.getProperty("sun.boot.class.path"));打印出来的。这个路径就是Bootstrcp ClassLoader默认搜索类的路径  
+[Loaded java.lang.Shutdown from C:\Program Files\Java\jdk1.6.0_22\jre\lib\rt.jar]  
+[Loaded java.lang.Shutdown$Lock from C:\Program Files\Java\jdk1.6.0_22\jre\lib\rt.jar]  
+```
+#### 将ClassLoaderTest.jar解压后，放到JAVA_HOME/jre/classes目录下,
+提示：jre目录下默认没有classes目录，需要自己手动创建一个
+
+打印结果：
+```
+null
+```
+从结果中可以看出，两种方式都实现了将ClassLoaderTest.class由Bootstrcp ClassLoader加载成功了。
+ 
+
 
 ## 其他
 https://www.ibm.com/developerworks/cn/java/j-lo-classloader/
@@ -982,25 +1182,7 @@ Accept-Language: en-US,en;q=0.8
 可以看出java是动态的加载类的～～～
 
 
-## 相关API
-```java
-java.lang.Class
-ClassLoader getClassLoader()
 
-java.lang.ClassLoader
-ClassLoader getParent()
-static ClassLoader getSystemClassLoader()
-protected Class findClass(String name)
-Class defineClass(String name,byte[] byteCodeData,int offset,int length)
-
-java.net.URLClassLoader
-URLClassLoader(URL[] urls)
-URLClassLoader(URL[] urls, ClassLoader parent)
-
-java.lang.Thread
-ClassLoader getContextClassLoader()
-void setContextClassLoader(ClassLoader loader)
-```
 
 
 

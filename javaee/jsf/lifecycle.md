@@ -1,5 +1,155 @@
+# 标准请求处理生命周期阶段
+
 # Restore View. 
 * 恢复UIComponent tree
+```java
+@Override
+public void execute(FacesContext facesContext) throws FacesException {
+
+    if (LOGGER.isLoggable(FINE)) {
+        LOGGER.fine("Entering RestoreViewPhase");
+    }
+    if (facesContext == null) {
+        throw new FacesException(MessageUtils.getExceptionMessageString(NULL_CONTEXT_ERROR_MESSAGE_ID));
+    }
+    
+    // 1. If an app had explicitely set the tree in the context, use that;
+    UIViewRoot viewRoot = facesContext.getViewRoot();
+    if (viewRoot != null) {
+        if (LOGGER.isLoggable(FINE)) {
+            LOGGER.fine("Found a pre created view in FacesContext");
+        }
+        // set locale
+        facesContext.getViewRoot().setLocale(facesContext.getExternalContext().getRequestLocale());
+
+        // do per-component actions
+        deliverPostRestoreStateEvent(facesContext);
+
+        if (!facesContext.isPostback()) {
+            facesContext.renderResponse();
+        }
+        return;
+    }
+    FacesException thrownException = null;
+
+    try {
+
+        // Reconstitute or create the request tree
+        // 2.drive viewId
+        Map<String, Object> requestMap = facesContext.getExternalContext().getRequestMap();
+        String viewId = (String) requestMap.get("javax.servlet.include.path_info");
+        
+        if (viewId == null) {
+            viewId = facesContext.getExternalContext().getRequestPathInfo();
+        }
+
+        // It could be that this request was mapped using a prefix mapping in which case there would be no
+        // path_info. Query the servlet path.
+        if (viewId == null) {
+            viewId = (String) requestMap.get("javax.servlet.include.servlet_path");
+        }
+
+        if (viewId == null) {
+            viewId = facesContext.getExternalContext().getRequestServletPath();
+        }
+
+        if (viewId == null) {
+            throw new FacesException(MessageUtils.getExceptionMessageString(NULL_REQUEST_VIEW_ERROR_MESSAGE_ID));
+        }
+
+        ViewHandler viewHandler = getViewHandler(facesContext);
+
+        // 3. determine if the request is a postback or initial request
+        if (facesContext.isPostback() && !isErrorPage(facesContext)) {
+            facesContext.setProcessingEvents(false);
+            // try to restore the view
+            viewRoot = viewHandler.restoreView(facesContext, viewId);
+            if (viewRoot == null) {
+                if (is11CompatEnabled(facesContext)) {
+                    // 1.1 -> create a new view and flag that the response should
+                    //        be immediately rendered
+                    if (LOGGER.isLoggable(FINE)) {
+                        LOGGER.fine("Postback: recreating a view for " + viewId);
+                    }
+                    viewRoot = viewHandler.createView(facesContext, viewId);
+                    facesContext.renderResponse();
+
+                } else {
+                    Object[] params = {viewId};
+                    throw new ViewExpiredException(
+                        getExceptionMessageString(RESTORE_VIEW_ERROR_MESSAGE_ID, params),
+                        viewId);
+                }
+            }
+
+            facesContext.setViewRoot(viewRoot);
+            facesContext.setProcessingEvents(true);
+            
+            if (LOGGER.isLoggable(FINE)) {
+                LOGGER.fine("Postback: restored view for " + viewId);
+            }
+        } else {
+            if (LOGGER.isLoggable(FINE)) {
+                LOGGER.fine("New request: creating a view for " + viewId);
+            }
+
+            String logicalViewId = viewHandler.deriveLogicalViewId(facesContext, viewId);
+            ViewDeclarationLanguage vdl = viewHandler.getViewDeclarationLanguage(facesContext, logicalViewId);
+            
+            maybeTakeProtectedViewAction(facesContext, viewHandler, vdl, logicalViewId);
+                
+            ViewMetadata metadata  = null;
+            if (vdl != null) {
+                // If we have one, get the ViewMetadata...
+                metadata = vdl.getViewMetadata(facesContext, logicalViewId);
+                
+                if (metadata != null) { // perhaps it's not supported
+                    // and use it to create the ViewRoot.  This will have, at most
+                    // the UIViewRoot and its metadata facet.
+                    viewRoot = metadata.createMetadataView(facesContext);
+                    
+                    // Only skip to render response if there is no metadata
+                    if (!ViewMetadata.hasMetadata(viewRoot)) {
+                        facesContext.renderResponse();
+                    }
+                }
+            }
+            
+            if (vdl == null || metadata == null) {
+                facesContext.renderResponse();
+            }
+
+            if (viewRoot == null) {
+                viewRoot = getViewHandler(facesContext).createView(facesContext, logicalViewId);
+            }
+            facesContext.setViewRoot(viewRoot);
+            
+            assert (viewRoot != null);
+        }
+    } catch (Throwable fe) {
+        if (fe instanceof FacesException) {
+            thrownException = (FacesException) fe;
+        } else {
+            thrownException = new FacesException(fe);
+        }
+    } finally {
+        if (thrownException == null) {
+            FlowHandler flowHandler = facesContext.getApplication().getFlowHandler();
+            if (flowHandler != null) {
+                flowHandler.clientWindowTransition(facesContext);
+            }
+            
+            deliverPostRestoreStateEvent(facesContext);
+        } else {
+            throw thrownException;
+        }
+    }
+
+    if (LOGGER.isLoggable(FINE)) {
+        LOGGER.fine("Exiting RestoreViewPhase");
+    }
+}
+```
 # Apply Request Values. 
 * 可编辑的Component应该实现EditableValueHolder接口
 * 遍历Component tree，每个Component会调用processDecodes()方法。对于大多数Component来说(除UIData等复杂的Component)，接着调用decode()方法。

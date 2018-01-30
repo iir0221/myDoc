@@ -1,4 +1,4 @@
-# JMX基础
+# JMX(Java Management Extensions)基础
 一个可以使用JMX管理器来管理的Java对象称为JMX管理资源(JMX manageable resource)。
 
 事实上,一个JMX管理资源也可以是一个应用程序、一个实现或者一个服务、设备、用户等等。

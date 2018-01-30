@@ -260,3 +260,129 @@ public class Solution {
 
 }
 ```
+## Tree Traversal
+### Binary Tree Preorder Traversal
+```java
+/**
+ * Definition of TreeNode:
+ * public class TreeNode {
+ *     public int val;
+ *     public TreeNode left, right;
+ *     public TreeNode(int val) {
+ *         this.val = val;
+ *         this.left = this.right = null;
+ *     }
+ * }
+ */
+public class Solution {
+    /**
+     * @param root: The root of binary tree.
+     * @return: Preorder in ArrayList which contains node values.
+     */
+    public ArrayList<Integer> preorderTraversal(TreeNode root) {
+        if(root==null)  
+            return null;  
+        ArrayList<Integer> list = new ArrayList();
+        Stack<TreeNode> stack = new Stack();  
+          
+        while(root != null || stack.size()>0){//将所有左孩子压栈  
+            if(root != null){//压栈之前先访问  
+                list.add(root.val); 
+                stack.push(root);  
+                root = root.left;  
+            }else{  
+                root = stack.pop();  
+                root = root.right;  
+            }  
+        }  
+        return list;
+        
+    }
+}
+```
+### Binary Tree Inorder Traversal
+```java
+/**
+ * Definition of TreeNode:
+ * public class TreeNode {
+ *     public int val;
+ *     public TreeNode left, right;
+ *     public TreeNode(int val) {
+ *         this.val = val;
+ *         this.left = this.right = null;
+ *     }
+ * }
+ */
+public class Solution {
+    /**
+     * @param root: The root of binary tree.
+     * @return: Inorder in ArrayList which contains node values.
+     */
+    
+    public ArrayList<Integer> inorderTraversal(TreeNode root) {
+        if(root==null)  
+            return null;  
+        ArrayList<Integer> list = new ArrayList();
+        Stack<TreeNode> stack = new Stack();  
+        TreeNode node = root;  
+          
+        while(node != null || stack.size()>0){  
+            if(node != null){  
+                stack.push(node);//直接压栈  
+                node = node.left;  
+            }else{  
+                node = stack.pop();//出栈并访问  
+                list.add(node.val); 
+                node = node.right;  
+            }  
+        } 
+        return list;
+    }
+}
+```
+
+### Binary Tree Postorder Traversal
+```java
+/**
+ * Definition of TreeNode:
+ * public class TreeNode {
+ *     public int val;
+ *     public TreeNode left, right;
+ *     public TreeNode(int val) {
+ *         this.val = val;
+ *         this.left = this.right = null;
+ *     }
+ * }
+ */
+
+
+public class Solution {
+    /*
+     * @param root: A Tree
+     * @return: Postorder in ArrayList which contains node values.
+     */
+    public List<Integer> postorderTraversal(TreeNode root) {
+        if(root==null)  
+            return null;  
+            
+        ArrayList<Integer> list = new ArrayList();
+        Stack<TreeNode> stack = new Stack();  
+        Stack<TreeNode> output = new Stack();//构造一个中间栈来存储逆后续遍历的结果  
+        while(root != null || stack.size()>0){  
+            if(root != null){  
+                output.push(root);  
+                stack.push(root);  
+                root = root.right;  
+            }else{  
+                root = stack.pop();  
+                root = root.left;  
+            }  
+        }  
+          
+        while(output.size()>0){  
+            list.add(output.pop().val);  
+        } 
+        return list;
+    }
+}
+```

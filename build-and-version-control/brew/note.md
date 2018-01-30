@@ -6,6 +6,6 @@ Error: Could not symlink bin/pcre-config
 ```
 解决
 ```bash
-suod chown -R xinyuan.zhang /usr/local
+sudo chown -R xinyuan.zhang /usr/local
 sudo chown -R xinyuan.zhang /usr/local/Cellar
 ```

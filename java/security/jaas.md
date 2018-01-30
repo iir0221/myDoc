@@ -1,0 +1,10 @@
+# JAAS
+## Subjects, Principals, Authentication, and Credentials
+
+To authorize access to resources, applications first need to authenticate the source of the request. The JAAS framework defines the term subject to represent the source of a request. A subject may be any entity, such as a person or service. A subject is represented by the javax.security.auth.Subject class.
+
+Authentication represents the process by which the identity of a subject is verified, and must be performed in a secure fashion; otherwise a perpetrator may impersonate others to gain access to a system. Authentication typically involves the subject demonstrating some form of evidence to prove its identity. Such evidence may be information only the subject would likely know or have (such as a password or fingerprint), or it may be information only the subject could produce (such as signed data using a private key).
+
+Once authenticated, a Subject is populated with associated identities, or Principals (of type java.security.Principal). A Subject may have many Principals. For example, a person may have a name Principal ("John Doe") and an SSN Principal ("123-45-6789"), which distinguish it from other Subjects.
+
+In addition to associated Principals, a Subject may own security-related attributes, which are referred to as credentials. A credential may contain information used to authenticate the subject to new services. Such credentials include passwords, Kerberos tickets, and public key certificates. Credentials might also contain data that enables the subject to perform certain activities. Cryptographic keys, for example, represent credentials that enable the subject to sign or encrypt data. Public and private credential classes are not part of the core J2SE API. Any class, therefore, can represent a credential.
