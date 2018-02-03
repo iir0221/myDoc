@@ -31,7 +31,7 @@ class TreeNode {
 * Max:只要有右儿子就向右进行
 
 ## insert
-假设同一个val只在二叉查找树中出现一次，则insert同contains基本相似，只是在x插入到遍历路径的最后一个节点上
+假设同一个val只在二叉查找树中出现一次，则insert同contains基本相似，只是x插入到遍历路径的最后一个节点上
 
 ## remove
 

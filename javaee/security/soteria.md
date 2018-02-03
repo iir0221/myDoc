@@ -98,9 +98,132 @@ public interface ProcessBean<X> {
 ```
 这个事件主要是在这里检查一个特定的bean是否被创建，有时会捕获它的定义以供进一步的使用。
 
-An observer on ProcessBean for all kind of bean. If you want to be more specific, you can use a child of this event to only observe the event for a specific kind of bean.
-![processBean hierarchy](.././cdi/images/processBean_hierarchy.svg)
+```java
+public <T> void processBean(@Observes ProcessBean<T> eventIn, BeanManager beanManager) {
 
+    ProcessBean<T> event = eventIn; // JDK8 u60 workaround
+
+    Class<?> beanClass = event.getBean().getBeanClass();
+    Optional<EmbeddedIdentityStoreDefinition> optionalEmbeddedStore = getAnnotation(beanManager, event.getAnnotated(), EmbeddedIdentityStoreDefinition.class);
+    optionalEmbeddedStore.ifPresent(embeddedIdentityStoreDefinition -> {
+        logActivatedIdentityStore(EmbeddedIdentityStore.class, beanClass);
+
+        identityStoreBeans.add(new CdiProducer<IdentityStore>()
+                .scope(ApplicationScoped.class)
+                .beanClass(IdentityStore.class)
+                .types(Object.class, IdentityStore.class, EmbeddedIdentityStore.class)
+                .addToId(EmbeddedIdentityStoreDefinition.class)
+                .create(e -> new EmbeddedIdentityStore(embeddedIdentityStoreDefinition))
+        );
+    });
+
+    Optional<DatabaseIdentityStoreDefinition> optionalDBStore = getAnnotation(beanManager, event.getAnnotated(), DatabaseIdentityStoreDefinition.class);
+    optionalDBStore.ifPresent(dataBaseIdentityStoreDefinition -> {
+        logActivatedIdentityStore(DatabaseIdentityStoreDefinition.class, beanClass);
+
+        identityStoreBeans.add(new CdiProducer<IdentityStore>()
+                .scope(ApplicationScoped.class)
+                .beanClass(IdentityStore.class)
+                .types(Object.class, IdentityStore.class, DatabaseIdentityStore.class)
+                .addToId(DatabaseIdentityStoreDefinition.class)
+                .create(e -> new DatabaseIdentityStore(
+                    DatabaseIdentityStoreDefinitionAnnotationLiteral.eval(
+                        dataBaseIdentityStoreDefinition)))
+        );
+    });
+
+    Optional<LdapIdentityStoreDefinition> optionalLdapStore = getAnnotation(beanManager, event.getAnnotated(), LdapIdentityStoreDefinition.class);
+    optionalLdapStore.ifPresent(ldapIdentityStoreDefinition -> {
+        logActivatedIdentityStore(LdapIdentityStoreDefinition.class, beanClass);
+
+        identityStoreBeans.add(new CdiProducer<IdentityStore>()
+                .scope(ApplicationScoped.class)
+                .beanClass(IdentityStore.class)
+                .types(Object.class, IdentityStore.class, LdapIdentityStore.class)
+                .addToId(LdapIdentityStoreDefinition.class)
+                .create(e -> new LdapIdentityStore(
+                    LdapIdentityStoreDefinitionAnnotationLiteral.eval(
+                        ldapIdentityStoreDefinition)))
+        );
+    });
+
+    Optional<BasicAuthenticationMechanismDefinition> optionalBasicMechanism = getAnnotation(beanManager, event.getAnnotated(), BasicAuthenticationMechanismDefinition.class);
+    optionalBasicMechanism.ifPresent(basicAuthenticationMechanismDefinition -> {
+        logActivatedAuthenticationMechanism(BasicAuthenticationMechanismDefinition.class, beanClass);
+
+        authenticationMechanismBean = new CdiProducer<HttpAuthenticationMechanism>()
+                .scope(ApplicationScoped.class)
+                .beanClass(BasicAuthenticationMechanism.class)
+                .types(Object.class, HttpAuthenticationMechanism.class, BasicAuthenticationMechanism.class)
+                .addToId(BasicAuthenticationMechanismDefinition.class)
+                .create(e -> new BasicAuthenticationMechanism(
+                    BasicAuthenticationMechanismDefinitionAnnotationLiteral.eval(
+                        basicAuthenticationMechanismDefinition)));
+    });
+
+    Optional<FormAuthenticationMechanismDefinition> optionalFormMechanism = getAnnotation(beanManager, event.getAnnotated(), FormAuthenticationMechanismDefinition.class);
+    optionalFormMechanism.ifPresent(formAuthenticationMechanismDefinition -> {
+        logActivatedAuthenticationMechanism(FormAuthenticationMechanismDefinition.class, beanClass);
+
+        authenticationMechanismBean = new CdiProducer<HttpAuthenticationMechanism>()
+                .scope(ApplicationScoped.class)
+                .beanClass(HttpAuthenticationMechanism.class)
+                .types(Object.class, HttpAuthenticationMechanism.class)
+                .addToId(FormAuthenticationMechanismDefinition.class)
+                .create(e -> {
+                    return CDI.current()
+                            .select(FormAuthenticationMechanism.class)
+                            .get()
+                            .loginToContinue(
+                                LoginToContinueAnnotationLiteral.eval(
+                                    formAuthenticationMechanismDefinition.loginToContinue()));
+                });
+    });
+
+    Optional<CustomFormAuthenticationMechanismDefinition> optionalCustomFormMechanism = getAnnotation(beanManager, event.getAnnotated(), CustomFormAuthenticationMechanismDefinition.class);
+    optionalCustomFormMechanism.ifPresent(customFormAuthenticationMechanismDefinition -> {
+        logActivatedAuthenticationMechanism(CustomFormAuthenticationMechanismDefinition.class, beanClass);
+
+        authenticationMechanismBean = new CdiProducer<HttpAuthenticationMechanism>()
+                .scope(ApplicationScoped.class)
+                .beanClass(HttpAuthenticationMechanism.class)
+                .types(Object.class, HttpAuthenticationMechanism.class)
+                .addToId(CustomFormAuthenticationMechanismDefinition.class)
+                .create(e -> {
+                    return CDI.current()
+                                .select(CustomFormAuthenticationMechanism.class)
+                                .get()
+                                .loginToContinue(
+                                    LoginToContinueAnnotationLiteral.eval(
+                                    customFormAuthenticationMechanismDefinition.loginToContinue()));
+
+                });
+    });
+
+    if (event.getBean().getTypes().contains(HttpAuthenticationMechanism.class)) {
+        // enabled bean implementing the HttpAuthenticationMechanism found
+        httpAuthenticationMechanismFound = true;
+    }
+
+    checkForWrongUseOfInterceptors(event.getAnnotated(), beanClass);
+}
+
+private void checkForWrongUseOfInterceptors(Annotated annotated, Class<?> beanClass) {
+    List<Class<? extends Annotation>> annotations = Arrays.asList(AutoApplySession.class, LoginToContinue.class, RememberMe.class);
+
+    for (Class<? extends Annotation> annotation : annotations) {
+        // Check if the class is not an interceptor, and is not a valid class to be intercepted.
+        if (annotated.isAnnotationPresent(annotation)
+                && !annotated.isAnnotationPresent(javax.interceptor.Interceptor.class)
+                && !HttpAuthenticationMechanism.class.isAssignableFrom(beanClass)) {
+            LOGGER.log(Level.WARNING, "Only classes implementing {0} may be annotated with {1}. {2} is annotated, but the interceptor won't take effect on it.", new Object[]{
+                HttpAuthenticationMechanism.class.getName(),
+                annotation.getName(),
+                beanClass.getName()});
+        }
+    }
+}
+```
 ### ProcessProducer event
 This event is fired for all producers find in the application.
 

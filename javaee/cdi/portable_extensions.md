@@ -32,11 +32,11 @@ To understand how to work with extensions, we can start by splitting container l
 
 黄色框的部分是extension可以观察的事件和执行的动作，灰色部分是CDI容器内部行为的简化。
 
-Types discovery的目标是创建一个AnnotatedType set，这些AnnotatedType将成为beans的候选。
+**Types discovery的目标是创建一个AnnotatedType set，这些AnnotatedType将成为beans的候选。**
 
-这个集合可以在BeforeTypeDiscovery或AfterDiscovery observers 中显式填充
+* 该集合可以在BeforeTypeDiscovery或AfterDiscovery observers 中显式填充
 
-该集合也通过容器的扫描过程自动填充，在这个过程中开发人员可以通过使用ProcessAnnotatedType observer 放置一个hook进行其他操作
+* 该集合也通过容器的扫描过程自动填充，在这个过程中开发人员可以通过使用ProcessAnnotatedType observer 放置一个hook进行其他操作
 
 ### Adding types before scanning (BeforeBeanDiscovery event)
 Before CDI container start automatic types scan on the class path, it fires the BeforeBeanDiscovery event.
@@ -127,30 +127,27 @@ At the end of observer invocation, the container will automatically build the ma
 
 对于类路径中的每个Bean归档（eg jar or module），可以对此扫描进行不同的配置。
 
-应用程序路径中的每个jar都可能（或不可能）包含beans.xml文件，该文件定义CDI容器将扫描此Bean归档文件的哪些类。
+应用程序路径中的每个jar都可能包含beans.xml文件，该文件定义CDI容器将扫描此Bean归档文件的哪些类。
 
 请记住，CDI不提供全局配置文件，因此每个bean归档文件（包括war容器其他bean归档文件）都必须定义其发现模式。
 
-三种发现模式：
+* **三种发现模式：**
 
-* none: no type will be discovered for this bean archive
+    * none: no type will be discovered for this bean archive
+    * all: all types will be discovered
+    * annotated (default mode): only class having specific annotations (bean defining annotation^) will be discovered
+        * **The set of bean defining annotations contains:**
 
-* annotated (default mode): only class having specific annotations (bean defining annotation^) will be discovered
+            * @ApplicationScoped, @SessionScoped, @ConversationScoped and @RequestScoped annotations,
+            * all other normal scope types,
+            * @Interceptor and @Decorator annotations,
+            * all stereotype annotations (i.e. annotations annotated with @Stereotype),
+            * and the @Dependent scope annotation.
 
-* all: all types will be discovered
-```
-The set of bean defining annotations contains:
 
-@ApplicationScoped, @SessionScoped, @ConversationScoped and @RequestScoped annotations,
 
-all other normal scope types,
 
-@Interceptor and @Decorator annotations,
 
-all stereotype annotations (i.e. annotations annotated with @Stereotype),
-
-and the @Dependent scope annotation.
-```
 通过分析beans.xml文件来推断Discovery mode
 
 ```
@@ -165,7 +162,6 @@ You can also fine grain(细粒) type discovery by using exclusion filters
 **In CDI 2.0 when you are working on Java SE, jars without beans.xml file are ignored by default.**
 
 ### ProcessAnnotatedType event
-After this scanning phase, the container creates an AnnotatedType and fire the ProcessAnnotatedType event for each  (except for annotations).
 在扫描阶段之后，容器将为每个type discovered创建一个AnnotatedType，触发ProcessAnnotatedType事件（除了annotations）
 ```java
 // 	the event is a parameterized type allowing user to only process AnnotatedType based on a given original type
