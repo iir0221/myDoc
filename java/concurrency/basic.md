@@ -144,7 +144,7 @@ sleep是Thread类的静态方法，wait是Object的方法
 
 > 调用wait()方法的语句可以写在synchronized方法和synchronized代码块，或者二者调用的其他方法中。因为要执行wait方法(或notify，notifyAll)，线程必须持有锁(这是规则)。**wait,notify,notifyAll本来就是设计用来为线程协作服务的**
 
-
+> 注意：Thread.yield()可能将线程置为可执行状态，而不是WAITING或TIMED_WAITING(wait())状态。因此，Thread.yield()不会释放锁，所以不能将它写在synchronized中！
 ## 对象的共享
 ### 内存可见性
 * 为了确保多个线程之间对内存写入操作的可见性，必须使用同步机制。

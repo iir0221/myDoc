@@ -487,7 +487,22 @@ public void updateModel(FacesContext context) {
 ```
 # Invoke Application. 
 * Button 事件监听器等将会在这个阶段被调用。 (as will navigation if memory serves).
-
+这一阶段将调用processApplication方法
+```java
+public void processApplication(FacesContext context) {
+    initState();
+    notifyBefore(context, PhaseId.INVOKE_APPLICATION);
+    try {
+        if (!skipPhase) {
+            // NOTE - no tree walk is performed; this is a UIViewRoot-only operation
+            broadcastEvents(context, PhaseId.INVOKE_APPLICATION);
+        }
+    } finally {
+        clearFacesEvents(context);
+        notifyAfter(context, PhaseId.INVOKE_APPLICATION);
+    }
+}
+```
 # Render Response. 
 * Tree通过renderers被rendered,state被保存。
 * 如果上述任一阶段出现异常，将直接执行Render Phase

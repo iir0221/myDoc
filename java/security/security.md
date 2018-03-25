@@ -36,7 +36,7 @@ Java2平台上，加载类时，会形成不同的sandbox，同时也会根据�
 * bytecode verifier(字节码校验器)
     * 确保Java类文件遵循Java语言规则，从图中可以看出，并非所有的类都要通过字节码校验
 * class loader(类加载器)
-* access controller(存钱控制器)
+* access controller(存取控制器)
     * 控制core api对操作系统的存取权限，基于策略而定
 * security manager(安全管理器)
     * core api与操作系统的主要接口

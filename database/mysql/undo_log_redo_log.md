@@ -1,15 +1,33 @@
+# Undo log
 ```       
           rollback-->atomicity
 undo log
           MVCC-->repeatable read(isoloation)
+          
+          事务结束后事务所占undo——随事务一起过期
 ```
-```      
-redo log: trx start-->write redo log buffer-->write undo log-->write db buffer-->commit-->write log file-->trx end-->checkpoint-->write db disk
-
-redo log durability
-
-log file是连续的，所以在提交的时候写log file，在checkpoint时，写db disk（离散的）效率较高
-```              
+# Redo log:重建赃页
+* 每一次事务都将产生一个LSN
+* 提交一个事务的流程
+  ```      
+  trx start-->write redo log buffer-->write undo log-->write db buffer
+  -->commit-->write log file-->trx end
+  -->checkpoint-->write db disk
+  ```  
+  * redo log 从buffer刷新到file的时机
+    * Master Thread每一秒将redo log buffer刷新到redo log file
+    * 每个事务提交时，将redo log buffer刷新到redo log file
+    * 当redo log缓冲池剩余空间小于1/2时（默认redo log缓冲池大小为8M），将redo log buffer刷新到redo log file
+  * 赃页刷新到磁盘的时机[（checkpoint)](./checkpoint.md)
+  * 事务提交时
+* redo log的作用（优点）
+  * 磁盘随机跟新效率低下
+    * 如果每次修改数据和索引都需要更新到磁盘，必定会大大增加I/O请求，因为每次更新的位置都是随机的，磁头需要频繁定位导致效率低；redo log提升了读的效率。
+    * redo log的另一个作用是，通过延迟dirty page的flush最小化磁盘的random writes。（redo log会合并一段时间内TRX对某个page的修改）
+    * log file是连续的，所以在提交的时候写log file，在checkpoint时，写db disk（离散的）效率较高
+  * redo log durability
+    * 在每次事务commit的时候，就立刻将事务更改操作记录到redo log（之后这次事务才算完成）。所以即使buffer pool中的dirty page在断电时丢失，InnoDB在启动时，仍然会根据redo log中的记录完成数据恢复。
+          
           
 
 
@@ -46,14 +64,12 @@ Last checkpoint at  602146249
 0 pending log flushes, 0 pending chkp writes
 1050 log i/o's done, 0.00 log i/o's/second
 ```
-为了管理脏页，在 Buffer Pool 的每个instance上都维持了一个flush list，flush list 上的 page 按照修改这些 page 的LSN号进行排序。因此定期做redo checkpoint点时，选择的 LSN 总是所有 bp instance 的 flush list 上最老的那个page（拥有最小的LSN）。由于采用WAL的策略，每次事务提交时需要持久化 redo log 才能保证事务不丢。而延迟刷脏页则起到了合并多次修改的效果，避免频繁写数据文件造成的性能问题。
+为了管理脏页，在 Buffer Pool 的每个instance上都维持了一个flush list，flush list 上的 page 按照修改这些 page 的LSN号进行排序。因此定期做redo checkpoint点时，选择的 LSN 总是所有 bp instance 的 flush list 上最老的那个page（拥有最小的LSN）。**由于采用WAL的策略，每次事务提交时需要持久化 redo log 才能保证事务不丢。而延迟刷脏页则起到了合并多次修改的效果，避免频繁写数据文件造成的性能问题。**
 
 ### 3、Dirty page
 在InnoDB中，写到bp里面的数据一方面可以加快数据处理速度，同时也会造成数据的不一致(RAM vs DISK)
 
-1、在对用户每次有导致数据变更的请求中，Innodb引擎把数据和索引都载入到内存中的缓冲池(buffer pool)中，如果每次修改数据和索引都需要更新到磁盘，必定会大大增加I/O请求
-
-因为每次更新的位置都是随机的，磁头需要频繁定位导致效率低；数据暂放在内存中，也一定程度的提高了读的速度。所以Innodb每处理完一个请求(Transaction)后只添加一条日志log，另外有一个线程负责智能地读取日志文件并批量更新到磁盘上，实现最高效的磁盘写入。innodb既然利用Mem buffer提高相应的速度，那当然也会带来数据不一致，术语为脏数据，mysql称之为dirty page。
+1、在对用户每次有导致数据变更的请求中，Innodb引擎把数据和索引都载入到内存中的缓冲池(buffer pool)中，如果每次修改数据和索引都需要更新到磁盘，必定会大大增加I/O请求，因为每次更新的位置都是随机的，磁头需要频繁定位导致效率低；数据暂放在内存中，也一定程度的提高了读的速度。所以Innodb每处理完一个请求(Transaction)后只添加一条日志log，另外有一个线程负责智能地读取日志文件并批量更新到磁盘上，实现最高效的磁盘写入。innodb既然利用Mem buffer提高相应的速度，那当然也会带来数据不一致，术语为脏数据，mysql称之为dirty page。
 
 **发生过程：当事务(Transaction)需要修改某条记录（row）时，InnoDB需要将该数据所在的page从disk读到buffer pool中，事务提交后，InnoDB修改page中的记录(row)。这时buffer pool中的page就已经和disk中的不一样了，mem中的数据称为脏数据（dirty page）。**
 

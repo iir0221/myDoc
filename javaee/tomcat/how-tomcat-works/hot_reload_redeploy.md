@@ -37,7 +37,7 @@ server.xml(默认)
 Catalina支持定期执行自身及其子容器的后台处理过程(该机制位于容器父类ContainerBase中，
 默认由Engine维护),具体处理过程在容器的backgroundProcess()方法中定义。
 
-该机制常用于定时扫描Web应用的变更，并进行重新加载或重新部署。后台任务处理完成后，将触发PERIODIC_EBENT事件。
+该机制常用于定时扫描Web应用的变更，并进行重新加载或重新部署。后台任务处理完成后，将触发PERIODIC_EVENT事件。
 
 当Engine启动时，会调用父类ContainerBase的startInternal()方法，从而开启backgroundProcess线程，循环检查：
 * StandardEngine#startInternal
@@ -182,7 +182,7 @@ protected class ContainerBackgroundProcessor implements Runnable {
     }
 }
 ```
-对于Engine，Host来说，没有重写backgroundProcess()方法，则将调用父类ContainerBase的backgroundProcess()方法
+对于Engine，Host来说，没有重写backgroundProcess()方法，则将调用父类ContainerBase的backgroundProcess()方法，并触发事件Lifecycle.PERIODIC_EVENT
 ```java
 /**
     * Execute a periodic task, such as reloading, etc. This method will be

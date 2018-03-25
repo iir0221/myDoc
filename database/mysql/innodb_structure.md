@@ -1,7 +1,7 @@
 # InnoDB存储体系结构
 ![](./images/innodb_structure.jpeg)
 
-> InnoDB存储引擎是基于磁盘存储的，并将其中的记录安装页的方式进行管理
+> InnoDB存储引擎是基于磁盘存储的，并将其中的记录按照页的方式进行管理
 
 * 后台线程
     * 主要作用是负责刷新内存池中的数据,保证缓冲池中的内存缓存的是最新数据;将已修改数据文件刷新到磁盘文件;保证数据库发生异常时 InnoDB 能恢复到正常运行的状态
@@ -89,7 +89,9 @@ Async/Sync Flush Checkpoint
 由于InnoDB是基于磁盘存储，使用缓冲池技术提高数据库的整体性能
 * 读取： 
     * 将页FIX在缓冲池中
-    * 在池中被命中
+    * 先从缓冲池查找数据
+    * 找到，称为在池中被命中
+    * 找不到则将页FIX在缓冲池中
 * 修改：
     * 首先修改缓冲池中的页
     * 再以Checkpoint机制刷新到磁盘 
@@ -170,7 +172,7 @@ I/O sum[0]:cur[0], unzip sum[0]:cur[0]
 * LRU:latest recent used算法,管理缓冲池（想起了java垃圾回收。。。）
     * 最开始页存在Free buffers中，当从缓冲池中分页时，先使用Free buffers中的页（将Free buffers中的页移动到database pages（lru）中）
     * 当Free buffers中的页被用完后，开始淘汰lru列表末尾的页
-* midpoint位置，最新读取到的页，放在LRU列5/8处，可由参数**innodb_old_blocks_pct**控制
+* midpoint位置，最新读取到的页，放在LRU列5/8处，可由参数**innodb_old_blocks_pct**控制,midpoint之前称为new列表，之后称为old列表
     ```sql
     mysql> show variables like 'innodb_old_blocks_pct'\G
     ```
@@ -213,7 +215,7 @@ page_number: 1
   page_type: IBUF_BITMAP
 2 rows in set (0.00 sec)
 ```
-> 压缩表在buffer pool中通过unzip_lru列表处理
+* 压缩表在buffer pool中通过unzip_lru列表处理
 ```sql
 mysql> show engine innodb status\G
 ```
@@ -265,4 +267,6 @@ InnoDB存储引擎首先将重做日志信息放入重做日志缓冲区，然�
 * 每个事物提交时会将重做日志缓冲刷新到重做日志文件。
 * 当重做日志缓冲池剩余空间小于1/2时，重做日志缓冲刷新到重做日志文件。
 ### 额外的内存池
-在innoDB存储引擎中，对内存的管理是通过一种称为内存堆(heap)的方式进行。在对一些数据结构本身的内存进行分配时，需要从额外的内存池中进行申请，当该区域的内存不够时，需要从缓冲池中申请。例如L:分配了缓冲池，但是每个缓冲池中的帧缓冲(frame buffer)还有对应的缓冲控制对象(buffer control block)，这些记录了一些诸如LRU、锁、等待等信息，而这个对象的内存就需要从额外内存池中申请。因此在申请了很大的缓冲池是也要考虑相应增加这个值。
+在innoDB存储引擎中，对内存的管理是通过一种称为内存堆(heap)的方式进行。在对一些数据结构本身的内存进行分配时，需要从额外的内存池中进行申请，当该区域的内存不够时，需要从缓冲池中申请。
+
+例如:分配了缓冲池，但是每个缓冲池中的帧缓冲(frame buffer)还有对应的缓冲控制对象(buffer control block)，这些记录了一些诸如LRU、锁、等待等信息，而这个对象的内存就需要从额外内存池中申请。因此在申请了很大的缓冲池是也要考虑相应增加这个值。
